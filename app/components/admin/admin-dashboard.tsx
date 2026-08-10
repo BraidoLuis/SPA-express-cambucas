@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { bookings, services, type Booking, type ServiceMedia } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
+import type { AuthProfile } from "../../lib/services/auth-service";
 function AdminContent({
   section,
   filter,
@@ -680,15 +681,19 @@ export function AdminDashboard({
   logout,
   mediaItems,
   setMediaItems,
+  profile,
 }: {
   goPublic: () => void;
   logout: () => void;
   mediaItems: ServiceMedia[];
   setMediaItems: React.Dispatch<React.SetStateAction<ServiceMedia[]>>;
+  profile: AuthProfile | null;
 }) {
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
+  const adminName = profile?.full_name || "Administradora";
+  const adminInitials = adminName.split(" ").slice(0, 2).map((name) => name[0]).join("").toUpperCase();
   const menu = [
     "Visão geral",
     "Agenda",
@@ -740,9 +745,9 @@ export function AdminDashboard({
             <ThemeToggle />
             <NotificationBell audience="admin" />
             <div className="profile">
-              <span>EC</span>
+              <span>{adminInitials}</span>
               <div>
-                <b>Eliane Cristina</b>
+                <b>{adminName}</b>
                 <small>Administradora</small>
               </div>
               ⌄
@@ -784,5 +789,4 @@ export function AdminDashboard({
     </div>
   );
 }
-
 

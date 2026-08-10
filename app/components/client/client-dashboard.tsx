@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { filterServices, hourlySlots, pad, serviceFilters, services, type Service, type ServiceMedia } from "../../lib/spa-data";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
+import type { AuthProfile } from "../../lib/services/auth-service";
 
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
@@ -293,9 +294,12 @@ function ClientMediaCarousel({ items, onSchedule }: { items: ServiceMedia[]; onS
   );
 }
 
-export function ClientDashboard({ logout, mediaItems }: { logout: () => void; mediaItems: ServiceMedia[] }) {
+export function ClientDashboard({ logout, mediaItems, profile }: { logout: () => void; mediaItems: ServiceMedia[]; profile: AuthProfile | null }) {
   const [tab, setTab] = useState("Serviços");
   const goServices = () => setTab("Serviços");
+  const clientName = profile?.full_name || "Cliente";
+  const firstName = clientName.split(" ")[0];
+  const initials = clientName.split(" ").slice(0, 2).map((name) => name[0]).join("").toUpperCase();
   return (
     <div className="client-portal">
       <header>
@@ -320,9 +324,9 @@ export function ClientDashboard({ logout, mediaItems }: { logout: () => void; me
         <div className="client-account-actions">
           <ThemeToggle />
           <div className="client-profile">
-            <span>MA</span>
+            <span>{initials}</span>
             <div>
-              <b>Mariana Alves</b>
+              <b>{clientName}</b>
               <small>Cliente</small>
             </div>
             <button onClick={logout}>Sair</button>
@@ -332,7 +336,7 @@ export function ClientDashboard({ logout, mediaItems }: { logout: () => void; me
       <main>
         <div className="client-welcome">
           <div>
-            <span className="eyebrow">OLÁ, MARIANA ♡</span>
+            <span className="eyebrow">OLÁ, {firstName.toUpperCase()} ♡</span>
             <h1>{tab === "Início" ? "Que bom ter você aqui!" : tab}</h1>
             <p>
               {tab === "Serviços"
@@ -460,7 +464,7 @@ export function ClientDashboard({ logout, mediaItems }: { logout: () => void; me
             <div className="form-grid">
               <label>
                 Nome completo
-                <input defaultValue="Mariana Alves" />
+                <input defaultValue={clientName} />
               </label>
               <label>
                 WhatsApp
@@ -468,7 +472,7 @@ export function ClientDashboard({ logout, mediaItems }: { logout: () => void; me
               </label>
               <label>
                 E-mail
-                <input defaultValue="mariana@email.com" />
+                <input defaultValue={profile?.email || ""} />
               </label>
               <label>
                 Data de nascimento
@@ -486,4 +490,3 @@ export function ClientDashboard({ logout, mediaItems }: { logout: () => void; me
     </div>
   );
 }
-
