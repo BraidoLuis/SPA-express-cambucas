@@ -304,7 +304,7 @@ function AdminContent({
           <article>
             <div className="big-avatar eliane">EC</div>
             <span className="online">● Disponível hoje</span>
-            <h3>Eliane Cristina</h3>
+            <h3>Eliane Cristina Braido</h3>
             <p>Massagista & Esteticista</p>
             <div className="mini-stats">
               <span>
@@ -327,7 +327,7 @@ function AdminContent({
           <article>
             <div className="big-avatar dayanne">DC</div>
             <span className="online">● Disponível hoje</span>
-            <h3>Dayanne Costa</h3>
+            <h3>Dayanne Braido</h3>
             <p>Manicure & Nail designer</p>
             <div className="mini-stats">
               <span>
@@ -636,8 +636,8 @@ function TeamCard() {
         </div>
       </div>
       {[
-        ["E", "Eliane Cristina", "Massagista & Esteticista", "5 atendimentos"],
-        ["D", "Dayanne Costa", "Manicure", "3 atendimentos"],
+        ["E", "Eliane Cristina Braido", "Massagista & Esteticista", "5 atendimentos"],
+        ["D", "Dayanne Braido", "Manicure", "3 atendimentos"],
       ].map((x) => (
         <div className="pro-row" key={x[1]}>
           <span className="pro-avatar eliane">{x[0]}</span>
@@ -789,4 +789,3 @@ export function AdminDashboard({
     </div>
   );
 }
-

@@ -1,39 +1,1042 @@
-"use client";
-import { useState } from "react";
-import { bookings, hourlySlots, monthKey, pad, services, type Service } from "../../lib/spa-data";
-import { AdminTable } from "../admin/admin-dashboard";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+} from "react";
+import {
+  monthKey,
+  pad,
+} from "../../lib/spa-data";
+import type { ProfessionalAccess } from "../../lib/services/professional-access-service";
+import {
+  completeProfessionalAppointment,
+  getProfessionalAgenda,
+  updateProfessionalAppointmentStatus,
+  type ProfessionalAppointment,
+  type ProfessionalAppointmentStatus,
+} from "../../lib/services/professional-agenda-service";
+import {
+  createProfessionalService,
+  getProfessionalServices,
+  updateProfessionalService,
+  type ProfessionalService,
+} from "../../lib/services/professional-service-service";
+import { ActionDialog } from "../shared/action-dialog";
+import {
+  getProfessionalAvailability,
+  saveProfessionalAvailability,
+  type ProfessionalAvailabilityRule,
+} from "../../lib/services/professional-availability-service";
+import {
+  createProfessionalTimeOff,
+  deleteProfessionalTimeOff,
+  getProfessionalTimeOffs,
+  type ProfessionalTimeOff,
+} from "../../lib/services/professional-time-off-service";
+import {
+  createProfessionalExtraAppointment,
+} from "../../lib/services/professional-extra-appointment-service";
+import {
+  createProfessionalScheduleBlock,
+  deleteProfessionalScheduleBlock,
+  getProfessionalScheduleBlocks,
+  type ProfessionalScheduleBlock,
+} from "../../lib/services/professional-schedule-block-service";
 import { Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
+
+const professionalStatusLabel: Record<
+  ProfessionalAppointmentStatus,
+  string
+> = {
+  pending: "Pendente",
+  confirmed: "Confirmado",
+  completed: "Concluído",
+  cancelled: "Cancelado",
+  no_show: "Não compareceu",
+};
+const availabilityWeekdays = [
+  { weekday: 1, label: "Segunda-feira" },
+  { weekday: 2, label: "Terça-feira" },
+  { weekday: 3, label: "Quarta-feira" },
+  { weekday: 4, label: "Quinta-feira" },
+  { weekday: 5, label: "Sexta-feira" },
+  { weekday: 6, label: "Sábado" },
+  { weekday: 0, label: "Domingo" },
+];
+function localDateKey(date: Date) {
+  return `${date.getFullYear()}-${pad(
+    date.getMonth() + 1,
+  )}-${pad(date.getDate())}`;
+}
+
+function appointmentTime(isoDate: string) {
+  return new Date(isoDate).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function ProfessionalDashboard({
-  professional,
+  access,
   goPublic,
   logout,
 }: {
-  professional: "Eliane" | "Dayanne";
+  access: ProfessionalAccess;
   goPublic: () => void;
   logout: () => void;
 }) {
   const [section, setSection] = useState("Meu dia");
-  const [blocked, setBlocked] = useState(false);
   const today = new Date();
   const [agendaMonth, setAgendaMonth] = useState(monthKey(today));
-  const [slotMinutes, setSlotMinutes] = useState(60);
-  const [workStart, setWorkStart] = useState(9);
-  const [workEnd, setWorkEnd] = useState(18);
+  const [slotMinutes, setSlotMinutes] = useState(
+    access.defaultSlotMinutes,
+  );
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [showExtraForm, setShowExtraForm] = useState(false);
-  const [extraAppointments, setExtraAppointments] = useState<Array<{date:string;time:string;client:string;service:string;duration:number}>>([]);
+  const [extraServiceId, setExtraServiceId] = useState("");
+  const [extraDuration, setExtraDuration] = useState(60);
+  const [extraSaving, setExtraSaving] = useState(false);
+  const [extraError, setExtraError] = useState("");
+  const [showBlockForm, setShowBlockForm] = useState(false);
+
+  const [
+    scheduleBlocks,
+    setScheduleBlocks,
+  ] = useState<ProfessionalScheduleBlock[]>([]);
+
+  const [scheduleBlocksLoading, setScheduleBlocksLoading] =
+    useState(true);
+
+  const [scheduleBlockSaving, setScheduleBlockSaving] =
+    useState(false);
+
+  const [scheduleBlockError, setScheduleBlockError] =
+    useState("");
+  const [todayAppointments, setTodayAppointments] =
+    useState<ProfessionalAppointment[]>([]);
+
+  const [monthAppointments, setMonthAppointments] =
+    useState<ProfessionalAppointment[]>([]);
+
+  const [agendaLoading, setAgendaLoading] =
+    useState(true);
+
+  const [agendaError, setAgendaError] =
+    useState("");
+  const [
+    updatingAppointmentId,
+    setUpdatingAppointmentId,
+  ] = useState("");
+  const [
+    completionAppointmentId,
+    setCompletionAppointmentId,
+  ] = useState("");
+
+  const [
+    appointmentToCancel,
+    setAppointmentToCancel,
+  ] = useState<ProfessionalAppointment | null>(null);
+
+  const [
+    timeOffToRemove,
+    setTimeOffToRemove,
+  ] = useState<ProfessionalTimeOff | null>(null);
+
+  const [
+    scheduleBlockToRemove,
+    setScheduleBlockToRemove,
+  ] = useState<ProfessionalScheduleBlock | null>(null);
+
+  const [paymentReceived, setPaymentReceived] =
+    useState(true);
+
+  const [paymentMethod, setPaymentMethod] =
+    useState<
+      "pix" | "dinheiro" | "cartao" | "outro"
+    >("pix");
+
+  const [paymentNotes, setPaymentNotes] =
+    useState("");
+  const [myServices, setMyServices] = useState<ProfessionalService[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesError, setServicesError] = useState("");
+  const [savingService, setSavingService] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState("");
+  const [
+    availabilityRules,
+    setAvailabilityRules,
+  ] = useState<ProfessionalAvailabilityRule[]>([]);
+
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
+  const [availabilitySuccess, setAvailabilitySuccess] = useState("");
+  const [timeOffs, setTimeOffs] = useState<ProfessionalTimeOff[]>([]);
+  const [timeOffsLoading, setTimeOffsLoading] = useState(true);
+  const [timeOffSaving, setTimeOffSaving] = useState(false);
+  const [timeOffError, setTimeOffError] = useState("");
+  const [showTimeOffForm, setShowTimeOffForm] = useState(false);
+  const professional: "Eliane" | "Dayanne" =
+    access.displayName.toLowerCase().includes("dayanne")
+      ? "Dayanne"
+      : "Eliane";
+
   const isEliane = professional === "Eliane";
-  const fullName = isEliane ? "Eliane Cristina" : "Dayanne Costa";
-  const initials = isEliane ? "EC" : "DC";
-  const role = isEliane
-    ? "Massagista & Esteticista"
-    : "Manicure & Nail designer";
-  const myBookings = bookings.filter((b) => b.professional === professional);
-  const [myServices, setMyServices] = useState<Service[]>(services.filter((s) => s.professional === professional));
+  const fullName = access.displayName;
+
+  const initials = fullName
+    .split(" ")
+    .slice(0, 2)
+    .map((name) => name[0])
+    .join("")
+    .toUpperCase();
+
+  const role = access.specialty;
   const monthDate = new Date(`${agendaMonth}-01T12:00:00`);
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const firstWeekday = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay();
   const menu = ["Meu dia", "Minha agenda", "Meus serviços", "Disponibilidade", "Notificações"];
+  const todayKey = localDateKey(today);
+
+  const activeTodayAppointments =
+    todayAppointments.filter(
+      (item) => item.status !== "cancelled",
+    );
+
+  const nextAppointment =
+    activeTodayAppointments.find(
+      (item) =>
+        ["pending", "confirmed"].includes(
+          item.status,
+        ) &&
+        new Date(item.end) > new Date(),
+    );
+
+  async function loadAgenda() {
+    setAgendaLoading(true);
+    setAgendaError("");
+
+    try {
+      const currentMonth = monthKey(new Date());
+
+      const [todayData, selectedMonthData] =
+        await Promise.all([
+          getProfessionalAgenda(access.id, currentMonth),
+
+          agendaMonth === currentMonth
+            ? getProfessionalAgenda(
+                access.id,
+                currentMonth,
+              )
+            : getProfessionalAgenda(
+                access.id,
+                agendaMonth,
+              ),
+        ]);
+
+      setTodayAppointments(
+        todayData.filter(
+          (item) =>
+            localDateKey(new Date(item.start)) ===
+            todayKey,
+        ),
+      );
+
+      setMonthAppointments(selectedMonthData);
+    } catch {
+      setAgendaError(
+        "Não foi possível carregar sua agenda agora.",
+      );
+    } finally {
+      setAgendaLoading(false);
+    }
+  }
+
+  async function loadServices() {
+    setServicesLoading(true);
+    setServicesError("");
+
+    try {
+      const professionalServices = await getProfessionalServices(access.id);
+      setMyServices(professionalServices);
+    } catch {
+      setServicesError("Não foi possível carregar seus serviços agora.");
+    } finally {
+      setServicesLoading(false);
+    }
+  }
+
+  async function submitService(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    setSavingService(true);
+    setServicesError("");
+
+    try {
+      await createProfessionalService({
+        name: String(form.get("name")),
+        category: String(form.get("category")),
+        description: String(form.get("description") || ""),
+        duration: Number(form.get("duration")),
+        price: Number(form.get("price")),
+        image: isEliane ? "/spa-eliane.png" : "/spa-nails.png",
+      });
+
+      formElement.reset();
+      setShowServiceForm(false);
+
+      await loadServices();
+    } catch (error) {
+      setServicesError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível cadastrar o serviço.",
+      );
+    } finally {
+      setSavingService(false);
+    }
+  }
+
+  async function saveServiceChanges(
+    event: FormEvent<HTMLFormElement>,
+    service: ProfessionalService,
+  ) {
+    event.preventDefault();
+
+    const form = new FormData(event.currentTarget);
+
+    setSavingService(true);
+    setServicesError("");
+
+    try {
+      await updateProfessionalService(access.id, service.id, {
+        duration: Number(form.get("duration")),
+        price: Number(form.get("price")),
+        active: service.active,
+      });
+
+      setEditingServiceId("");
+      await loadServices();
+    } catch {
+      setServicesError(
+        "Não foi possível salvar as alterações do serviço.",
+      );
+    } finally {
+      setSavingService(false);
+    }
+  }
+
+  async function toggleService(service: ProfessionalService) {
+    setSavingService(true);
+    setServicesError("");
+
+    try {
+      await updateProfessionalService(access.id, service.id, {
+        duration: service.duration,
+        price: service.price,
+        active: !service.active,
+      });
+
+      await loadServices();
+    } catch {
+      setServicesError(
+        "Não foi possível alterar a situação do serviço.",
+      );
+    } finally {
+      setSavingService(false);
+    }
+  }
+
+  async function loadAvailability() {
+    setAvailabilityLoading(true);
+    setAvailabilityError("");
+    setAvailabilitySuccess("");
+
+    try {
+      const storedRules = await getProfessionalAvailability(access.id);
+
+      const completeRules = availabilityWeekdays.map(
+        ({ weekday }, index) => {
+          const storedRule = storedRules.find(
+            (rule) => rule.weekday === weekday,
+          );
+
+          if (storedRule) {
+            return storedRule;
+          }
+
+          return {
+            id: null,
+            weekday,
+            startTime: "09:00",
+            endTime: weekday === 6 ? "15:00" : "18:00",
+            slotMinutes,
+            active: index < 6,
+          };
+        },
+      );
+
+      setAvailabilityRules(completeRules);
+
+      if (storedRules.length > 0) {
+        setSlotMinutes(storedRules[0].slotMinutes);
+      }
+    } catch {
+      setAvailabilityError(
+        "Não foi possível carregar sua disponibilidade.",
+      );
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
+
+  function updateAvailabilityRule(
+    weekday: number,
+    changes: Partial<ProfessionalAvailabilityRule>,
+  ) {
+    setAvailabilityRules((currentRules) =>
+      currentRules.map((rule) =>
+        rule.weekday === weekday
+          ? { ...rule, ...changes }
+          : rule,
+      ),
+    );
+
+    setAvailabilitySuccess("");
+  }
+
+  function changeSlotMinutes(value: number) {
+    setSlotMinutes(value);
+
+    setAvailabilityRules((currentRules) =>
+      currentRules.map((rule) => ({
+        ...rule,
+        slotMinutes: value,
+      })),
+    );
+
+    setAvailabilitySuccess("");
+  }
+
+  async function submitAvailability() {
+    setAvailabilityError("");
+    setAvailabilitySuccess("");
+
+    const invalidRule = availabilityRules.find(
+      (rule) =>
+        rule.active &&
+        (!rule.startTime ||
+          !rule.endTime ||
+          rule.endTime <= rule.startTime),
+    );
+
+    if (invalidRule) {
+      const day = availabilityWeekdays.find(
+        (item) => item.weekday === invalidRule.weekday,
+      );
+
+      setAvailabilityError(
+        `O horário final de ${day?.label || "um dos dias"} deve ser maior que o inicial.`,
+      );
+
+      return;
+    }
+
+    setAvailabilitySaving(true);
+
+    try {
+      const normalizedRules = availabilityRules.map((rule) => ({
+        ...rule,
+        slotMinutes,
+      }));
+
+      await saveProfessionalAvailability(
+        access.id,
+        normalizedRules,
+      );
+
+      setAvailabilitySuccess("Disponibilidade salva com sucesso.");
+      await loadAvailability();
+      setAvailabilitySuccess("Disponibilidade salva com sucesso.");
+    } catch {
+      setAvailabilityError(
+        "Não foi possível salvar sua disponibilidade.",
+      );
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
+
+  async function loadTimeOffs() {
+    setTimeOffsLoading(true);
+    setTimeOffError("");
+
+    try {
+      const storedTimeOffs = await getProfessionalTimeOffs(access.id);
+      setTimeOffs(storedTimeOffs);
+    } catch {
+      setTimeOffError("Não foi possível carregar suas folgas.");
+    } finally {
+      setTimeOffsLoading(false);
+    }
+  }
+
+  async function submitTimeOff(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const date = String(form.get("date"));
+    const reason = String(form.get("reason") || "").trim();
+    const currentDate = localDateKey(new Date());
+
+    setTimeOffError("");
+
+    if (!date || date < currentDate) {
+      setTimeOffError(
+        "Escolha a data de hoje ou uma data futura.",
+      );
+      return;
+    }
+
+    if (reason.length > 0 && reason.length < 3) {
+      setTimeOffError(
+        "O motivo deve possuir pelo menos 3 caracteres.",
+      );
+      return;
+    }
+
+    setTimeOffSaving(true);
+
+    try {
+      await createProfessionalTimeOff(
+        access.id,
+        date,
+        reason || "Folga",
+      );
+
+      formElement.reset();
+      setShowTimeOffForm(false);
+
+      await loadTimeOffs();
+    } catch {
+      setTimeOffError("Não foi possível cadastrar a folga.");
+    } finally {
+      setTimeOffSaving(false);
+    }
+  }
+
+  async function removeTimeOff(timeOff: ProfessionalTimeOff) {
+    setTimeOffSaving(true);
+    setTimeOffError("");
+
+    try {
+      await deleteProfessionalTimeOff(
+        access.id,
+        timeOff.id,
+      );
+
+      await loadTimeOffs();
+    } catch {
+      setTimeOffError("Não foi possível remover essa folga.");
+    } finally {
+      setTimeOffSaving(false);
+    }
+  }
+
+  function toggleExtraForm() {
+    setExtraError("");
+
+    if (showExtraForm) {
+      setShowExtraForm(false);
+      return;
+    }
+
+    const firstActiveService = myServices.find(
+      (service) => service.active,
+    );
+
+    setExtraServiceId(firstActiveService?.id || "");
+    setExtraDuration(firstActiveService?.duration || 60);
+    setShowExtraForm(true);
+  }
+
+  async function submitExtraAppointment(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const date = String(form.get("date"));
+    const time = String(form.get("time"));
+    const clientName = String(form.get("client")).trim();
+    const notes = String(form.get("notes") || "").trim();
+
+    setExtraError("");
+
+    if (!extraServiceId) {
+      setExtraError("Selecione um serviço.");
+      return;
+    }
+
+    if (clientName.length < 3) {
+      setExtraError(
+        "Informe o nome da cliente com pelo menos 3 caracteres.",
+      );
+      return;
+    }
+
+    if (!date || !time) {
+      setExtraError("Informe a data e o horário do atendimento.");
+      return;
+    }
+
+    if (extraDuration < 10 || extraDuration > 720) {
+      setExtraError(
+        "A duração deve estar entre 10 e 720 minutos.",
+      );
+      return;
+    }
+
+    setExtraSaving(true);
+
+    try {
+      await createProfessionalExtraAppointment({
+        serviceId: extraServiceId,
+        clientName,
+        date,
+        time,
+        duration: extraDuration,
+        notes,
+      });
+
+      formElement.reset();
+      setShowExtraForm(false);
+
+      await loadAgenda();
+    } catch (error) {
+
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : error instanceof Error
+            ? error.message
+            : "";
+
+      setExtraError(
+        message.includes("appointments_no_professional_overlap") ||
+          message.toLowerCase().includes("conflict")
+          ? "Esse período já está ocupado por outro atendimento."
+          : message.includes("Serviço não encontrado")
+            ? "Esse serviço não está mais disponível para a profissional."
+            : message ||
+              "Não foi possível salvar o atendimento extra.",
+      );
+    } finally {
+      setExtraSaving(false);
+    }
+  }
+
+
+
+  async function loadScheduleBlocks() {
+    setScheduleBlocksLoading(true);
+    setScheduleBlockError("");
+
+    try {
+      const storedBlocks =
+        await getProfessionalScheduleBlocks(
+          access.id,
+          agendaMonth,
+        );
+
+      setScheduleBlocks(storedBlocks);
+    } catch {
+      setScheduleBlockError(
+        "Não foi possível carregar os horários bloqueados.",
+      );
+    } finally {
+      setScheduleBlocksLoading(false);
+    }
+  }
+
+  async function submitScheduleBlock(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+
+    const date = String(form.get("date"));
+    const startTime = String(form.get("startTime"));
+    const endTime = String(form.get("endTime"));
+    const reason = String(form.get("reason") || "").trim();
+
+    setScheduleBlockError("");
+
+    if (!date || !startTime || !endTime) {
+      setScheduleBlockError(
+        "Informe a data, o horário inicial e o horário final.",
+      );
+      return;
+    }
+
+    if (endTime <= startTime) {
+      setScheduleBlockError(
+        "O horário final deve ser posterior ao inicial.",
+      );
+      return;
+    }
+
+    setScheduleBlockSaving(true);
+
+    try {
+      await createProfessionalScheduleBlock({
+        date,
+        startTime,
+        endTime,
+        reason,
+      });
+
+      formElement.reset();
+      setShowBlockForm(false);
+
+      await loadScheduleBlocks();
+    } catch (error) {
+
+      const message =
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error
+          ? String(error.message)
+          : "";
+
+      setScheduleBlockError(
+        message.includes("atendimento ativo")
+          ? "Já existe um atendimento nesse período."
+          : message.includes("já possui um bloqueio")
+            ? "Esse período já está bloqueado."
+            : message.includes("passado")
+              ? "Não é possível bloquear um horário no passado."
+              : message ||
+                "Não foi possível bloquear esse horário.",
+      );
+    } finally {
+      setScheduleBlockSaving(false);
+    }
+  }
+
+  async function removeScheduleBlock(
+    block: ProfessionalScheduleBlock,
+  ) {
+    setScheduleBlockSaving(true);
+    setScheduleBlockError("");
+
+    try {
+      await deleteProfessionalScheduleBlock(
+        access.id,
+        block.id,
+      );
+
+      await loadScheduleBlocks();
+    } catch {
+      setScheduleBlockError(
+        "Não foi possível liberar esse horário.",
+      );
+    } finally {
+      setScheduleBlockSaving(false);
+    }
+  }
+
+  async function changeAppointmentStatus(
+    appointment: ProfessionalAppointment,
+    status: ProfessionalAppointmentStatus,
+    reason?: string,
+  ) {
+    if (
+      status === "cancelled" &&
+      (!reason || reason.trim().length < 3)
+    ) {
+      setAgendaError(
+        "Informe um motivo de cancelamento com pelo menos 3 caracteres.",
+      );
+      return;
+    }
+
+    setUpdatingAppointmentId(appointment.id);
+    setAgendaError("");
+
+    try {
+      await updateProfessionalAppointmentStatus(
+        appointment.id,
+        status,
+        reason,
+      );
+
+      await loadAgenda();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "";
+
+      setAgendaError(
+        message.includes("futuro")
+          ? "Esse atendimento ainda não pode ser concluído ou marcado como ausência."
+          : "Não foi possível atualizar o atendimento.",
+      );
+    } finally {
+      setUpdatingAppointmentId("");
+    }
+  }
+
+  function openCompletion(appointmentId: string) {
+  setCompletionAppointmentId(appointmentId);
+  setPaymentReceived(true);
+  setPaymentMethod("pix");
+  setPaymentNotes("");
+  setAgendaError("");
+}
+
+async function finishAppointment(
+  event: FormEvent<HTMLFormElement>,
+  appointment: ProfessionalAppointment,
+) {
+  event.preventDefault();
+
+  setUpdatingAppointmentId(appointment.id);
+  setAgendaError("");
+
+  try {
+    await completeProfessionalAppointment({
+      appointmentId: appointment.id,
+      paymentReceived,
+      paymentMethod: paymentReceived
+        ? paymentMethod
+        : undefined,
+      paymentNotes,
+    });
+
+    setCompletionAppointmentId("");
+    await loadAgenda();
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "";
+
+    setAgendaError(
+      message.includes("futuro")
+        ? "Esse atendimento ainda não pode ser concluído."
+        : "Não foi possível concluir o atendimento.",
+    );
+  } finally {
+    setUpdatingAppointmentId("");
+  }
+}
+
+function completionForm(
+  item: ProfessionalAppointment,
+) {
+  if (completionAppointmentId !== item.id) {
+    return null;
+  }
+
+  return (
+    <form
+      className="appointment-completion-form"
+      onSubmit={(event) =>
+        finishAppointment(event, item)
+      }
+    >
+      <strong>Concluir atendimento</strong>
+
+      <label className="payment-received-check">
+        <input
+          type="checkbox"
+          checked={paymentReceived}
+          onChange={(event) =>
+            setPaymentReceived(
+              event.target.checked,
+            )
+          }
+        />
+
+        <span>Pagamento recebido no local</span>
+      </label>
+
+      <label>
+        Forma de pagamento
+
+        <select
+          value={paymentMethod}
+          disabled={!paymentReceived}
+          onChange={(event) =>
+            setPaymentMethod(
+              event.target.value as
+                | "pix"
+                | "dinheiro"
+                | "cartao"
+                | "outro",
+            )
+          }
+        >
+          <option value="pix">PIX</option>
+          <option value="dinheiro">
+            Dinheiro
+          </option>
+          <option value="cartao">
+            Cartão
+          </option>
+          <option value="outro">Outro</option>
+        </select>
+      </label>
+
+      <label>
+        Observação
+
+        <input
+          value={paymentNotes}
+          onChange={(event) =>
+            setPaymentNotes(event.target.value)
+          }
+          placeholder="Opcional"
+        />
+      </label>
+
+      <div>
+        <button
+          type="button"
+          onClick={() =>
+            setCompletionAppointmentId("")
+          }
+        >
+          Voltar
+        </button>
+
+        <button
+          className="complete"
+          disabled={
+            updatingAppointmentId === item.id
+          }
+        >
+          {updatingAppointmentId === item.id
+            ? "Salvando..."
+            : "Confirmar conclusão"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+  function appointmentActions(
+    item: ProfessionalAppointment,
+  ) {
+    const updating =
+      updatingAppointmentId === item.id;
+
+    const alreadyStarted =
+      new Date(item.start) <= new Date();
+
+    if (
+      !["pending", "confirmed"].includes(
+        item.status,
+      )
+    ) {
+      return null;
+    }
+
+    return (
+      <div className="professional-appointment-actions">
+        {item.status === "pending" && (
+          <button
+            disabled={updating}
+            onClick={() =>
+              changeAppointmentStatus(
+                item,
+                "confirmed",
+              )
+            }
+          >
+            Confirmar
+          </button>
+        )}
+
+        {item.status === "confirmed" &&
+          alreadyStarted && (
+            <button
+              className="complete"
+              disabled={updating}
+              onClick={() => openCompletion(item.id)}
+            >
+              Concluir
+            </button>
+          )}
+
+        {item.status === "confirmed" &&
+          alreadyStarted && (
+            <button
+              disabled={updating}
+              onClick={() =>
+                changeAppointmentStatus(
+                  item,
+                  "no_show",
+                )
+              }
+            >
+              Não compareceu
+            </button>
+          )}
+
+        <button
+          className="cancel"
+          disabled={updating}
+          onClick={() => setAppointmentToCancel(item)}
+        >
+          {updating
+            ? "Atualizando..."
+            : "Cancelar"}
+        </button>
+      </div>
+    );
+  }
+
+  useEffect(() => {
+    void loadAgenda();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.id, agendaMonth]);
+  useEffect(() => {
+    void loadServices();
+
+    // Recarrega quando a conta profissional mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.id]);
+  useEffect(() => {
+    void loadAvailability();
+
+    // Recarrega quando a conta profissional mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.id]);
+  useEffect(() => {
+    void loadTimeOffs();
+
+    // Recarrega quando a conta profissional mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.id]);
+  useEffect(() => {
+    void loadScheduleBlocks();
+
+    // Recarrega quando a profissional ou o mês consultado mudar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [access.id, agendaMonth]);
   return (
     <div className="admin-shell professional-shell">
       <aside>
@@ -54,7 +1057,9 @@ export function ProfessionalDashboard({
             >
               <span>{["⌂", "▦", "✦", "◷", "♢"][i]}</span>
               {m}
-              {m === "Meu dia" && <i>{myBookings.length}</i>}
+              {m === "Meu dia" && (
+                <i>{activeTodayAppointments.length}</i>
+              )}
             </button>
           ))}
         </nav>
@@ -94,11 +1099,18 @@ export function ProfessionalDashboard({
           <>
             <section className="professional-welcome">
               <div>
-                <span className="eyebrow">SEXTA-FEIRA, 07 DE AGOSTO</span>
+                <span className="eyebrow">
+                  {today
+                    .toLocaleDateString("pt-BR", {
+                      weekday: "long",
+                      day: "2-digit",
+                      month: "long",
+                    })
+                    .toUpperCase()}
+                </span>
                 <h2>Bom dia, {professional}! ♡</h2>
                 <p>
-                  Você tem {myBookings.length} atendimentos programados para
-                  hoje.
+                  Você tem {activeTodayAppointments.length} atendimentos programados para hoje.
                 </p>
               </div>
               <button
@@ -113,21 +1125,33 @@ export function ProfessionalDashboard({
                 <span>◷</span>
                 <div>
                   <small>PRÓXIMO ATENDIMENTO</small>
-                  <b>
-                    {myBookings[0]?.time} · {myBookings[0]?.client}
-                  </b>
-                  <p>{myBookings[0]?.service}</p>
+                    <b>
+                      {nextAppointment
+                        ? `${appointmentTime(
+                            nextAppointment.start,
+                          )} · ${nextAppointment.clientName}`
+                        : "Nenhum próximo horário"}
+                    </b>
+
+                    <p>
+                      {nextAppointment?.serviceName ||
+                        "Sua agenda está livre"}
+                    </p>
                 </div>
               </article>
               <article>
                 <span>✓</span>
                 <div>
                   <small>ATENDIMENTOS HOJE</small>
-                  <b>{myBookings.length}</b>
-                  <p>
-                    {myBookings.filter((b) => b.status === "Confirmado").length}{" "}
-                    confirmados
-                  </p>
+                    <b>{activeTodayAppointments.length}</b>
+
+                    <p>
+                      {
+                        activeTodayAppointments.filter(
+                          (item) => item.status === "confirmed",
+                        ).length
+                      } confirmados
+                    </p>
                 </div>
               </article>
               <article>
@@ -147,7 +1171,66 @@ export function ProfessionalDashboard({
                 </div>
                 <span className="access-pill">Visão individual</span>
               </div>
-              <AdminTable rows={myBookings} />
+              {agendaLoading && (
+                  <div className="professional-agenda-feedback">
+                    Carregando seus horários...
+                  </div>
+                )}
+
+                {!agendaLoading &&
+                  activeTodayAppointments.length === 0 && (
+                    <div className="professional-agenda-feedback">
+                      Nenhum atendimento marcado para hoje.
+                    </div>
+                  )}
+
+                {!agendaLoading &&
+                  activeTodayAppointments.length > 0 && (
+                    <div className="professional-appointment-list">
+                      {activeTodayAppointments.map((item) => (
+                        <article key={item.id}>
+                          <time>
+                            {appointmentTime(item.start)}
+                          </time>
+
+                          <div>
+                            <b>{item.clientName}</b>
+
+                            <span>
+                              {item.serviceName} · {item.duration} minutos
+                            </span>
+
+                            <small>
+                              R${" "}
+                              {item.paymentAmount
+                                .toFixed(2)
+                                .replace(".", ",")}{" "}
+                              ·{" "}
+                              {item.paymentStatus === "paid"
+                                ? "pagamento confirmado"
+                                : "pagamento no local"}
+                            </small>
+                          </div>
+
+                          <em className={item.status}>
+                            {professionalStatusLabel[item.status]}
+                          </em>
+                          {appointmentActions(item)}
+                          {completionForm(item)}
+                        </article>
+                      ))}
+                    </div>
+                  )}
+
+                {agendaError && (
+                  <div className="professional-agenda-feedback error">
+                    {agendaError}
+
+                    <button onClick={loadAgenda}>
+                      Tentar novamente
+                    </button>
+                  </div>
+                )}
             </section>
           </>
         )}
@@ -164,31 +1247,279 @@ export function ProfessionalDashboard({
                   onClick={() => setAgendaMonth(monthKey(today))}
                 >Hoje</button>
                 <button
-                  onClick={() => setBlocked(!blocked)}
+                  type="button"
+                  onClick={() => {
+                    setScheduleBlockError("");
+                    setShowBlockForm((current) => !current);
+                  }}
                 >
-                  ＋ Bloquear horário
+                  {showBlockForm
+                    ? "Fechar bloqueio"
+                    : "＋ Bloquear horário"}
                 </button>
-                <button className="primary" onClick={() => setShowExtraForm(!showExtraForm)}>＋ Serviço extra</button>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={toggleExtraForm}
+                >
+                  {showExtraForm ? "Fechar formulário" : "＋ Serviço extra"}
+                </button>
               </div>
             </div>
-            {showExtraForm && <form className="inline-extra-form" onSubmit={(event) => {event.preventDefault(); const form = new FormData(event.currentTarget); setExtraAppointments((items) => [...items, {date:String(form.get("date")),time:String(form.get("time")),client:String(form.get("client")),service:String(form.get("service")),duration:Number(form.get("duration"))}]); setShowExtraForm(false);}}>
-              <div><b>Adicionar atendimento fora da grade</b><small>Ideal para encaixes, retornos e serviços realizados sem reserva prévia.</small></div>
-              <input name="date" type="date" min={today.toISOString().slice(0,10)} required />
-              <input name="time" type="time" required />
-              <input name="client" placeholder="Nome da cliente" required />
-              <select name="service">{myServices.map((service) => <option key={service.name}>{service.name}</option>)}</select>
-              <input name="duration" type="number" min="15" step="15" defaultValue="60" aria-label="Duração em minutos" />
-              <button className="primary">Salvar encaixe</button>
-            </form>}
-            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>Grade de <b>{slotMinutes} minutos</b> · {pad(workStart)}:00 às {pad(workEnd)}:00</span></div>
+            {scheduleBlockError && (
+              <p className="schedule-block-error">
+                {scheduleBlockError}
+              </p>
+            )}
+
+            {showBlockForm && (
+              <form
+                className="schedule-block-form"
+                onSubmit={submitScheduleBlock}
+              >
+                <div>
+                  <b>Bloquear um período</b>
+                  <small>
+                    Esse horário deixará de aparecer para as clientes.
+                  </small>
+                </div>
+
+                <label>
+                  Data
+                  <input
+                    name="date"
+                    type="date"
+                    min={todayKey}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Início
+                  <input
+                    name="startTime"
+                    type="time"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Fim
+                  <input
+                    name="endTime"
+                    type="time"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Motivo
+                  <input
+                    name="reason"
+                    placeholder="Ex.: Almoço ou compromisso"
+                  />
+                </label>
+
+                <button
+                  className="primary"
+                  disabled={scheduleBlockSaving}
+                >
+                  {scheduleBlockSaving
+                    ? "Bloqueando..."
+                    : "Salvar bloqueio"}
+                </button>
+              </form>
+            )}
+            {showExtraForm && (
+              <form
+                className="inline-extra-form"
+                onSubmit={submitExtraAppointment}
+              >
+                <div>
+                  <b>Adicionar atendimento fora da grade</b>
+                  <small>
+                    Ideal para encaixes, retornos e atendimentos sem reserva
+                    prévia.
+                  </small>
+                </div>
+
+                {extraError && (
+                  <p className="extra-appointment-error">
+                    {extraError}
+                  </p>
+                )}
+
+                <label>
+                  Data
+                  <input
+                    name="date"
+                    type="date"
+                    min={todayKey}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Horário
+                  <input
+                    name="time"
+                    type="time"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Cliente
+                  <input
+                    name="client"
+                    minLength={3}
+                    placeholder="Nome da cliente"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Serviço
+                  <select
+                    name="service"
+                    value={extraServiceId}
+                    required
+                    onChange={(event) => {
+                      const serviceId = event.target.value;
+                      const selectedService = myServices.find(
+                        (service) => service.id === serviceId,
+                      );
+
+                      setExtraServiceId(serviceId);
+                      setExtraDuration(selectedService?.duration || 60);
+                    }}
+                  >
+                    {myServices
+                      .filter((service) => service.active)
+                      .map((service) => (
+                        <option
+                          value={service.id}
+                          key={service.id}
+                        >
+                          {service.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                <label>
+                  Duração em minutos
+                  <input
+                    name="duration"
+                    type="number"
+                    min="10"
+                    max="720"
+                    step="5"
+                    value={extraDuration}
+                    required
+                    onChange={(event) =>
+                      setExtraDuration(Number(event.target.value))
+                    }
+                  />
+                </label>
+
+                <label>
+                  Observação
+                  <input
+                    name="notes"
+                    placeholder="Opcional"
+                  />
+                </label>
+
+                <button
+                  className="primary"
+                  disabled={extraSaving || !extraServiceId}
+                >
+                  {extraSaving ? "Salvando..." : "Salvar encaixe"}
+                </button>
+              </form>
+            )}
+            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>Grade de <b>{slotMinutes} minutos</b> · horários conforme sua disponibilidade</span></div>
+            {scheduleBlocksLoading && (
+              <p className="schedule-block-loading">
+                Carregando bloqueios...
+              </p>
+            )}
             <div className="professional-month-calendar">
               {["DOM","SEG","TER","QUA","QUI","SEX","SÁB"].map((label)=><b className="month-weekday" key={label}>{label}</b>)}
               {Array.from({length:firstWeekday}).map((_,i)=><span className="empty-day" key={`empty-${i}`} />)}
-              {Array.from({length:daysInMonth},(_,i)=>i+1).map((day) => {
+              {Array.from(
+                { length: daysInMonth },
+                (_, index) => index + 1,
+              ).map((day) => {
                 const date = `${agendaMonth}-${pad(day)}`;
-                const extra = extraAppointments.filter((item)=>item.date===date);
-                const demoService = day % 5 === 0 ? myServices[day % myServices.length] : null;
-                return <article key={day} className={date < today.toISOString().slice(0,10) ? "past" : ""}><strong>{day}</strong>{demoService && <div className="calendar-booking"><b>{pad(workStart + (day % 6))}:00</b><span>{demoService.name}</span><small>{demoService.duration} min · ocupa {Math.ceil(demoService.duration / slotMinutes)} bloco(s)</small></div>}{extra.map((item)=><div className="calendar-booking extra" key={`${item.time}-${item.client}`}><b>{item.time} · encaixe</b><span>{item.service}</span><small>{item.client} · {item.duration} min</small></div>)}{blocked && day===18 && <div className="calendar-block">Bloqueado</div>}</article>;
+
+                const dayScheduleBlocks = scheduleBlocks.filter(
+                  (block) =>
+                    localDateKey(new Date(block.start)) === date,
+                );
+
+                const dayAppointments = monthAppointments.filter(
+                  (item) =>
+                    localDateKey(new Date(item.start)) === date &&
+                    item.status !== "cancelled",
+                );
+
+                return (
+                  <article
+                    key={day}
+                    className={date < todayKey ? "past" : ""}
+                  >
+                    <strong>{day}</strong>
+
+                    {dayAppointments.map((item) => (
+                      <div
+                        className={`calendar-booking ${
+                          item.outsideSchedule ? "extra" : ""
+                        }`}
+                        key={item.id}
+                      >
+                        <b>
+                          {appointmentTime(item.start)}
+                          {item.outsideSchedule ? " · encaixe" : ""}
+                        </b>
+
+                        <span>{item.serviceName}</span>
+
+                        <small>
+                          {item.clientName} · {item.duration} min
+                        </small>
+
+                        {appointmentActions(item)}
+                        {completionForm(item)}
+                      </div>
+                    ))}
+
+                    {dayScheduleBlocks.map((block) => (
+                      <div
+                        className="calendar-block real"
+                        key={block.id}
+                      >
+                        <b>
+                          {appointmentTime(block.start)} até{" "}
+                          {appointmentTime(block.end)}
+                        </b>
+
+                        <span>
+                          {block.reason || "Horário bloqueado"}
+                        </span>
+
+                        <button
+                          type="button"
+                          disabled={scheduleBlockSaving}
+                          onClick={() => setScheduleBlockToRemove(block)}
+                        >
+                          Liberar
+                        </button>
+                      </div>
+                    ))}
+                  </article>
+                );
               })}
             </div>
           </div>
@@ -202,30 +1533,189 @@ export function ProfessionalDashboard({
               </div>
               <button className="primary" onClick={() => setShowServiceForm(!showServiceForm)}>＋ Adicionar serviço</button>
             </div>
-            {showServiceForm && <form className="professional-service-form" onSubmit={(event)=>{event.preventDefault(); const form = new FormData(event.currentTarget); setMyServices((items)=>[...items,{name:String(form.get("name")),category:String(form.get("category")),duration:Number(form.get("duration")),price:Number(form.get("price")),professional,image:isEliane?"/spa-eliane.png":"/spa-nails.png"}]); setShowServiceForm(false);}}>
-              <label>Nome do serviço<input name="name" required placeholder="Ex.: Spa dos pés" /></label>
-              <label>Categoria<input name="category" required placeholder="Ex.: Unhas" /></label>
-              <label>Duração estimada<input name="duration" type="number" min="15" step="15" defaultValue="60" required /></label>
-              <label>Valor no local<input name="price" type="number" min="0" step="5" required /></label>
-              <button className="primary">Salvar serviço</button>
-            </form>}
+            {showServiceForm && (
+              <form
+                className="professional-service-form"
+                onSubmit={submitService}
+              >
+                <label>
+                  Nome do serviço
+                  <input
+                    name="name"
+                    required
+                    minLength={3}
+                    placeholder="Ex.: Spa dos pés"
+                  />
+                </label>
+
+                <label>
+                  Categoria
+                  <input
+                    name="category"
+                    required
+                    minLength={2}
+                    placeholder="Ex.: Unhas"
+                  />
+                </label>
+
+                <label>
+                  Descrição
+                  <input
+                    name="description"
+                    placeholder="Explique brevemente o atendimento"
+                  />
+                </label>
+
+                <label>
+                  Duração estimada
+                  <input
+                    name="duration"
+                    type="number"
+                    min="10"
+                    max="720"
+                    step="5"
+                    defaultValue="60"
+                    required
+                  />
+                </label>
+
+                <label>
+                  Valor no local
+                  <input
+                    name="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                  />
+                </label>
+
+                <button className="primary" disabled={savingService}>
+                  {savingService ? "Salvando..." : "Salvar serviço"}
+                </button>
+              </form>
+            )}
+            {servicesError && (
+              <p className="form-error professional-services-error">
+                {servicesError}
+              </p>
+            )}
+
+            {servicesLoading && (
+              <p className="professional-services-loading">
+                Carregando seus serviços...
+              </p>
+            )}
             <div className="admin-service-grid professional-services">
-              {myServices.map((s, i) => (
-                <article key={s.name}>
+              {myServices.map((service, index) => (
+                <article
+                  className={!service.active ? "inactive-service" : ""}
+                  key={service.id}
+                >
                   <div className="service-admin-icon">
-                    {isEliane ? ["♨", "≈", "✧", "◇"][i] : ["✦", "♢"][i]}
+                    {isEliane
+                      ? ["♨", "≈", "✧", "◇"][index % 4]
+                      : ["✦", "♢"][index % 2]}
                   </div>
-                  <span className="active-pill">Ativo</span>
-                  <h3>{s.name}</h3>
+
+                  <span
+                    className={`active-pill ${
+                      !service.active ? "inactive" : ""
+                    }`}
+                  >
+                    {service.active ? "Ativo" : "Inativo"}
+                  </span>
+
+                  <h3>{service.name}</h3>
+
                   <p>
-                    {s.category} · {s.duration} minutos
+                    {service.category} · {service.duration} minutos
                   </p>
+
                   <div>
-                    <b>R$ {s.price},00</b>
-                    <span>Na sua agenda</span>
+                    <b>
+                      {service.price.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </b>
+
+                    <span>
+                      {service.active
+                        ? "Visível para clientes"
+                        : "Oculto para clientes"}
+                    </span>
                   </div>
+
+                  {editingServiceId === service.id && (
+                    <form
+                      className="professional-service-edit-form"
+                      onSubmit={(event) =>
+                        saveServiceChanges(event, service)
+                      }
+                    >
+                      <label>
+                        Duração em minutos
+                        <input
+                          name="duration"
+                          type="number"
+                          min="10"
+                          max="720"
+                          step="5"
+                          defaultValue={service.duration}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        Valor no local
+                        <input
+                          name="price"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          defaultValue={service.price}
+                          required
+                        />
+                      </label>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingServiceId("")}
+                        >
+                          Voltar
+                        </button>
+
+                        <button
+                          className="primary"
+                          disabled={savingService}
+                        >
+                          {savingService ? "Salvando..." : "Salvar"}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
                   <footer>
-                    <button>Ver horários</button>
+                    <button
+                      onClick={() =>
+                        setEditingServiceId(
+                          editingServiceId === service.id
+                            ? ""
+                            : service.id,
+                        )
+                      }
+                    >
+                      Editar duração e valor
+                    </button>
+
+                    <button
+                      disabled={savingService}
+                      onClick={() => toggleService(service)}
+                    >
+                      {service.active ? "Desativar" : "Ativar"}
+                    </button>
                   </footer>
                 </article>
               ))}
@@ -238,47 +1728,239 @@ export function ProfessionalDashboard({
             <div className="screen-top">
               <div>
                 <h2>Minha disponibilidade</h2>
-                <p>Informe os períodos em que você poderá receber clientes.</p>
+                <p>
+                  Informe os dias e períodos em que você poderá receber
+                  clientes.
+                </p>
               </div>
-              <button className="primary">Salvar alterações</button>
+
+              <button
+                type="button"
+                className="primary"
+                disabled={availabilitySaving || availabilityLoading}
+                onClick={submitAvailability}
+              >
+                {availabilitySaving
+                  ? "Salvando..."
+                  : "Salvar alterações"}
+              </button>
             </div>
-            <div className="schedule-rules-card">
-              <div><label>Intervalo da grade<select value={slotMinutes} onChange={(event)=>setSlotMinutes(Number(event.target.value))}><option value="60">De hora em hora</option><option value="30">A cada 30 minutos</option><option value="15">A cada 15 minutos</option></select></label><small>Define de quanto em quanto tempo os horários começam.</small></div>
-              <div><label>Início do expediente<input type="number" min="0" max="23" value={workStart} onChange={(event)=>setWorkStart(Number(event.target.value))} /></label></div>
-              <div><label>Fim do expediente<input type="number" min="1" max="24" value={workEnd} onChange={(event)=>setWorkEnd(Number(event.target.value))} /></label></div>
-              <div className="availability-total"><span>Disponibilidade diária</span><b>{Math.max(0,workEnd-workStart)} horas</b><small>{hourlySlots(workStart,workEnd,slotMinutes).length} possíveis inícios de atendimento</small></div>
-            </div>
-            <div className="availability-list">
-              {[
-                ["Segunda-feira", "09:00", "18:00"],
-                ["Terça-feira", "09:00", "18:00"],
-                ["Quarta-feira", "09:00", "18:00"],
-                ["Quinta-feira", "09:00", "18:00"],
-                ["Sexta-feira", "09:00", "19:00"],
-                ["Sábado", "09:00", "15:00"],
-              ].map((d, i) => (
-                <div key={d[0]}>
-                  <label>
-                    <input type="checkbox" defaultChecked={i !== 2} />
-                    <span>{d[0]}</span>
-                  </label>
-                  <input defaultValue={d[1]} />
-                  <em>até</em>
-                  <input defaultValue={d[2]} />
-                  <button>＋ Intervalo</button>
+
+            {availabilityError && (
+              <p className="availability-message error">
+                {availabilityError}
+              </p>
+            )}
+
+            {availabilitySuccess && (
+              <p className="availability-message success">
+                {availabilitySuccess}
+              </p>
+            )}
+
+            {availabilityLoading ? (
+              <div className="availability-loading">
+                Carregando sua disponibilidade...
+              </div>
+            ) : (
+              <>
+                <div className="schedule-rules-card">
+                  <div>
+                    <label>
+                      Intervalo da grade
+
+                      <select
+                        value={slotMinutes}
+                        onChange={(event) =>
+                          changeSlotMinutes(Number(event.target.value))
+                        }
+                      >
+                        <option value="60">De hora em hora</option>
+                        <option value="30">A cada 30 minutos</option>
+                        <option value="15">A cada 15 minutos</option>
+                      </select>
+                    </label>
+
+                    <small>
+                      Define de quanto em quanto tempo os horários poderão
+                      começar.
+                    </small>
+                  </div>
+
+                  <div className="availability-total">
+                    <span>Dias disponíveis</span>
+
+                    <b>
+                      {
+                        availabilityRules.filter((rule) => rule.active)
+                          .length
+                      }{" "}
+                      dias
+                    </b>
+
+                    <small>
+                      As clientes verão somente horários futuros e livres.
+                    </small>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="time-off-card">
-              <span>☼</span>
-              <div>
-                <b>Folgas e ausências</b>
-                <small>
-                  Bloqueie férias, consultas ou compromissos pessoais.
-                </small>
-              </div>
-              <button>＋ Adicionar período</button>
-            </div>
+
+                <div className="availability-list">
+                  {availabilityWeekdays.map(({ weekday, label }) => {
+                    const rule = availabilityRules.find(
+                      (item) => item.weekday === weekday,
+                    );
+
+                    if (!rule) return null;
+
+                    return (
+                      <div
+                        className={!rule.active ? "inactive" : ""}
+                        key={weekday}
+                      >
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={rule.active}
+                            onChange={(event) =>
+                              updateAvailabilityRule(weekday, {
+                                active: event.target.checked,
+                              })
+                            }
+                          />
+
+                          <span>{label}</span>
+                        </label>
+
+                        <input
+                          type="time"
+                          value={rule.startTime}
+                          disabled={!rule.active}
+                          aria-label={`Início de ${label}`}
+                          onChange={(event) =>
+                            updateAvailabilityRule(weekday, {
+                              startTime: event.target.value,
+                            })
+                          }
+                        />
+
+                        <em>até</em>
+
+                        <input
+                          type="time"
+                          value={rule.endTime}
+                          disabled={!rule.active}
+                          aria-label={`Fim de ${label}`}
+                          onChange={(event) =>
+                            updateAvailabilityRule(weekday, {
+                              endTime: event.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="professional-time-off">
+                  <div className="time-off-card">
+                    <span>☼</span>
+
+                    <div>
+                      <b>Folgas e ausências</b>
+                      <small>
+                        Bloqueie datas em que você não poderá receber clientes.
+                      </small>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={timeOffSaving}
+                      onClick={() => setShowTimeOffForm((current) => !current)}
+                    >
+                      {showTimeOffForm ? "Fechar" : "＋ Adicionar folga"}
+                    </button>
+                  </div>
+
+                  {timeOffError && (
+                    <p className="availability-message error">
+                      {timeOffError}
+                    </p>
+                  )}
+
+                  {showTimeOffForm && (
+                    <form
+                      className="time-off-form"
+                      onSubmit={submitTimeOff}
+                    >
+                      <label>
+                        Data da folga
+
+                        <input
+                          name="date"
+                          type="date"
+                          min={todayKey}
+                          required
+                        />
+                      </label>
+
+                      <label>
+                        Motivo
+
+                        <input
+                          name="reason"
+                          minLength={3}
+                          placeholder="Ex.: Compromisso pessoal"
+                        />
+                      </label>
+
+                      <button
+                        className="primary"
+                        disabled={timeOffSaving}
+                      >
+                        {timeOffSaving ? "Salvando..." : "Bloquear data"}
+                      </button>
+                    </form>
+                  )}
+
+                  <div className="time-off-list">
+                    {timeOffsLoading ? (
+                      <p>Carregando folgas...</p>
+                    ) : timeOffs.length === 0 ? (
+                      <p>Nenhuma folga futura cadastrada.</p>
+                    ) : (
+                      timeOffs.map((timeOff) => (
+                        <article key={timeOff.id}>
+                          <div>
+                            <b>
+                              {new Date(
+                                `${timeOff.date}T12:00:00`,
+                              ).toLocaleDateString("pt-BR", {
+                                weekday: "long",
+                                day: "2-digit",
+                                month: "long",
+                                year: "numeric",
+                              })}
+                            </b>
+
+                            <small>
+                              {timeOff.reason || "Folga"}
+                            </small>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={timeOffSaving}
+                            onClick={() => setTimeOffToRemove(timeOff)}
+                          >
+                            Liberar data
+                          </button>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
         {section === "Notificações" && <div className="screen-card notification-settings">
@@ -295,8 +1977,90 @@ export function ProfessionalDashboard({
           <div className="integration-status"><span>✓</span><div><b>Integrações preparadas</b><small>Resend, WhatsApp Business Cloud API e notificações internas serão acionados pelo backend após a reserva ser gravada no Supabase.</small></div></div>
         </div>}
       </main>
+
+      <ActionDialog
+        open={appointmentToCancel !== null}
+        title="Cancelar atendimento?"
+        description={
+          appointmentToCancel
+            ? `O horário de ${appointmentToCancel.clientName} será liberado novamente para outras clientes.`
+            : ""
+        }
+        confirmLabel="Confirmar cancelamento"
+        danger
+        loading={
+          appointmentToCancel
+            ? updatingAppointmentId === appointmentToCancel.id
+            : false
+        }
+        input={{
+          label: "Motivo do cancelamento",
+          placeholder: "Ex.: Cliente solicitou o cancelamento",
+          minLength: 3,
+          required: true,
+        }}
+        onCancel={() => setAppointmentToCancel(null)}
+        onConfirm={(reason) => {
+          if (!appointmentToCancel) return;
+
+          const appointment = appointmentToCancel;
+
+          setAppointmentToCancel(null);
+
+          void changeAppointmentStatus(
+            appointment,
+            "cancelled",
+            reason,
+          );
+        }}
+      />
+      <ActionDialog
+        open={timeOffToRemove !== null}
+        title="Liberar esta data?"
+        description={
+          timeOffToRemove
+            ? `Os horários de ${new Date(
+                `${timeOffToRemove.date}T12:00:00`,
+              ).toLocaleDateString("pt-BR")} voltarão a ficar disponíveis para as clientes.`
+            : ""
+        }
+        confirmLabel="Liberar data"
+        loading={timeOffSaving}
+        onCancel={() => setTimeOffToRemove(null)}
+        onConfirm={() => {
+          if (!timeOffToRemove) return;
+
+          const timeOff = timeOffToRemove;
+          setTimeOffToRemove(null);
+
+          void removeTimeOff(timeOff);
+        }}
+      />
+
+      <ActionDialog
+        open={scheduleBlockToRemove !== null}
+        title="Liberar este horário?"
+        description={
+          scheduleBlockToRemove
+            ? `O período de ${appointmentTime(
+                scheduleBlockToRemove.start,
+              )} até ${appointmentTime(
+                scheduleBlockToRemove.end,
+              )} voltará a aparecer para as clientes.`
+            : ""
+        }
+        confirmLabel="Liberar horário"
+        loading={scheduleBlockSaving}
+        onCancel={() => setScheduleBlockToRemove(null)}
+        onConfirm={() => {
+          if (!scheduleBlockToRemove) return;
+
+          const block = scheduleBlockToRemove;
+          setScheduleBlockToRemove(null);
+
+          void removeScheduleBlock(block);
+        }}
+      />
     </div>
   );
 }
-
-

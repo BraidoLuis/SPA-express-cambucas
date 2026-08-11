@@ -149,7 +149,7 @@ export function PublicSite({
               title: <>Cuidado profundo.<br /><em>Leveza para o corpo.</em></>,
               text: "Eliane é massagista e esteticista, especialista em transformar cada atendimento em uma pausa real na rotina.",
               detail: "Seu olhar cuidadoso combina bem-estar, técnica e protocolos personalizados para cada cliente.",
-              name: "Eliane Cristina",
+              name: "Eliane Cristina Braido",
               role: "massagista & esteticista",
             },
             {
@@ -158,7 +158,7 @@ export function PublicSite({
               title: <>Beleza nos detalhes.<br /><em>Unhas com personalidade.</em></>,
               text: "Dayanne é manicure e nail designer, apaixonada por acabamento impecável e por valorizar o estilo de cada cliente.",
               detail: "Do cuidado clássico às técnicas em gel, cada etapa é feita com precisão, criatividade e carinho.",
-              name: "Dayanne Costa",
+              name: "Dayanne Braido",
               role: "manicure & nail designer",
             },
           ].map((slide, index) => (

@@ -1,9 +1,15 @@
 export type Service = {
+  id?: string;
+  slug?: string;
+  professionalId?: string;
   name: string;
   category: string;
+  description?: string;
   duration: number;
   price: number;
   professional: string;
+  professionalFullName?: string;
+  specialty?: string;
   image?: string;
 };
 export type Booking = {

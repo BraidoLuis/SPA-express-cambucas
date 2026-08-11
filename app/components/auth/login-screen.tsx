@@ -63,8 +63,10 @@ export function LoginScreen({ role, close, onLogin }: {
     </div>
     <div className="login-side"><div className="mobile-login-hero"><img src={admin ? "/team-access.png" : "/client-access.png"} alt="" /><div className="mobile-login-shade" /><button onClick={close} aria-label="Voltar ao site">←</button><Logo compact /><div><span>✦</span><p>{admin ? "Seu espaço de trabalho, do seu jeito." : "Você merece um momento só seu."}</p></div></div>
       <form className="login-box" onSubmit={recovering ? savePassword : submit}>
+      <div className="logo-box">
         <div className="access-badge">{admin ? "⚙ ACESSO DA EQUIPE" : "♡ ÁREA DA CLIENTE"}</div>
         <span className="eyebrow">SPA EXPRESS CAMBUCÁS</span>
+      </div>
         <h2>{recovering ? "Crie uma nova senha" : admin ? "Acesse seu espaço" : "Entre na sua conta"}</h2>
         <p>{recovering ? "Escolha uma senha segura para recuperar o acesso." : admin ? "Administradora e profissionais entram com seus próprios e-mails." : "Acompanhe seus agendamentos e cuide de você com tranquilidade."}</p>
         {!recovering && <><label>E-mail</label><div className="login-input"><span>✉</span><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" /></div></>}

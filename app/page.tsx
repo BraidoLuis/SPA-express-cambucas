@@ -7,6 +7,10 @@ import { ClientDashboard } from "./components/client/client-dashboard";
 import { ProfessionalDashboard } from "./components/professional/professional-dashboard";
 import { PublicSite } from "./components/public/public-site";
 import { getProfile, loginWithPassword, logoutUser, type AuthProfile } from "./lib/services/auth-service";
+import {
+  getProfessionalAccess,
+  type ProfessionalAccess,
+} from "./lib/services/professional-access-service";
 import { initialServiceMedia, type ServiceMedia } from "./lib/spa-data";
 import { createClient } from "../lib/supabase/client";
 
@@ -15,7 +19,8 @@ type View = "public" | "login-admin" | "login-client" | "admin" | "staff" | "cli
 export default function Home() {
   const [view, setView] = useState<View>("public");
   const [profile, setProfile] = useState<AuthProfile | null>(null);
-  const [teamUser, setTeamUser] = useState<"Eliane" | "Dayanne">("Eliane");
+  const [professionalAccess, setProfessionalAccess] =
+  useState<ProfessionalAccess | null>(null);
   const [mediaItems, setMediaItems] = useState<ServiceMedia[]>(initialServiceMedia);
   const [checkingSession, setCheckingSession] = useState(true);
 
@@ -25,15 +30,40 @@ export default function Home() {
     window.history.pushState({}, "", query);
   }
 
-  async function routeProfile(found: AuthProfile, access: string | null) {
+  async function routeProfile(
+    found: AuthProfile,
+    access: string | null,
+  ) {
     setProfile(found);
-    if (found.role === "client") {
-      if (access === "admin") return false;
-      navigate("client"); return true;
+
+    if (!found.active) {
+      return false;
     }
-    if (access === "client") return false;
-    if (found.role === "admin") navigate("admin");
-    else { setTeamUser(found.full_name.toLowerCase().includes("dayanne") ? "Dayanne" : "Eliane"); navigate("staff"); }
+
+    if (found.role === "client") {
+      if (access === "admin") {
+        return false;
+      }
+
+      navigate("client");
+      return true;
+    }
+
+    if (access === "client") {
+      return false;
+    }
+
+    if (found.role === "admin") {
+      navigate("admin");
+      return true;
+    }
+
+    const linkedProfessional =
+      await getProfessionalAccess(found.id);
+
+    setProfessionalAccess(linkedProfessional);
+    navigate("staff");
+
     return true;
   }
 
@@ -75,9 +105,13 @@ export default function Home() {
   }
 
   async function logout(destination: "login-admin" | "login-client") {
-    await logoutUser().catch(() => undefined); setProfile(null); navigate(destination);
+    await logoutUser().catch(() => undefined);
+
+    setProfile(null);
+    setProfessionalAccess(null);
+    navigate(destination);
   }
 
   if (checkingSession) return <div className="auth-loading"><span>✦</span><p>Preparando seu espaço...</p></div>;
-  return <>{view === "admin" ? <AdminDashboard profile={profile} goPublic={() => navigate("public")} logout={() => logout("login-admin")} mediaItems={mediaItems} setMediaItems={setMediaItems} /> : view === "staff" ? <ProfessionalDashboard professional={teamUser} goPublic={() => navigate("public")} logout={() => logout("login-admin")} /> : view === "client" ? <ClientDashboard profile={profile} logout={() => logout("login-client")} mediaItems={mediaItems} /> : view === "login-admin" ? <LoginScreen role="admin" close={() => navigate("public")} onLogin={handleLogin} /> : view === "login-client" ? <LoginScreen role="client" close={() => navigate("public")} onLogin={handleLogin} /> : <PublicSite goAdmin={() => navigate("login-client")} openBooking={() => navigate("login-client")} />}</>;
+  return <>{view === "admin" ? <AdminDashboard profile={profile} goPublic={() => navigate("public")} logout={() => logout("login-admin")} mediaItems={mediaItems} setMediaItems={setMediaItems} /> : view === "staff" && professionalAccess ? <ProfessionalDashboard access={professionalAccess} goPublic={() => navigate("public")} logout={() => logout("login-admin")} /> : view === "client" ? <ClientDashboard profile={profile} logout={() => logout("login-client")} mediaItems={mediaItems} /> : view === "login-admin" ? <LoginScreen role="admin" close={() => navigate("public")} onLogin={handleLogin} /> : view === "login-client" ? <LoginScreen role="client" close={() => navigate("public")} onLogin={handleLogin} /> : <PublicSite goAdmin={() => navigate("login-client")} openBooking={() => navigate("login-client")} />}</>;
 }

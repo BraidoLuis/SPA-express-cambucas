@@ -1,8 +1,13 @@
 "use client";
-import { useRef, useState } from "react";
-import { filterServices, hourlySlots, pad, serviceFilters, services, type Service, type ServiceMedia } from "../../lib/spa-data";
+import { useEffect, useRef, useState } from "react";
+import { pad, type Service, type ServiceMedia } from "../../lib/spa-data";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
+import { getClientCatalog } from "../../lib/services/catalog-service";
+import { getAvailableSlots, type AvailableSlot } from "../../lib/services/availability-service";
+import { cancelClientAppointment, createClientAppointment, getClientAppointments, type ClientAppointment } from "../../lib/services/appointment-service";
+import { ClientProfileForm } from "./client-profile-form";
+import { ActionDialog } from "../shared/action-dialog";
 
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
@@ -23,15 +28,71 @@ function glideCarousel(element: HTMLDivElement | null, distance: number) {
 
   requestAnimationFrame(animate);
 }
-function ServiceScheduling() {
+function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () => void | Promise<void> }) {
   const today = new Date();
   const firstAvailable = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
   const [selected, setSelected] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState(firstAvailable.toISOString().slice(0, 10));
   const [time, setTime] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [appointmentId, setAppointmentId] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("Todos");
+  const [catalog, setCatalog] = useState<Service[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [slotsError, setSlotsError] = useState("");
+  const [availabilityReload, setAvailabilityReload] = useState(0);
   const clientCarousel = useRef<HTMLDivElement>(null);
+  const filters = ["Todos", ...Array.from(new Set(catalog.map((service) => service.category)))];
+  const visibleServices = catalogFilter === "Todos" ? catalog : catalog.filter((service) => service.category === catalogFilter);
+  async function loadCatalog() {
+    setCatalogLoading(true); setCatalogError("");
+    try { setCatalog(await getClientCatalog()); }
+    catch { setCatalogError("Não foi possível carregar os serviços agora."); }
+    finally { setCatalogLoading(false); }
+  }
+  useEffect(() => { void loadCatalog(); }, []);
+  useEffect(() => {
+    if (!selected?.id || !selected.professionalId) return;
+    let cancelled = false;
+    setSlotsLoading(true); setSlotsError(""); setAvailableSlots([]); setTime(""); setSelectedSlot(null); setBookingError("");
+    getAvailableSlots(selected.professionalId, selected.id, selectedDate)
+      .then((slots) => { if (!cancelled) setAvailableSlots(slots); })
+      .catch(() => { if (!cancelled) setSlotsError("Não foi possível consultar a agenda agora."); })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [selected, selectedDate, availabilityReload]);
+  async function confirmAppointment() {
+    if (!selected?.id || !selected.professionalId || !selectedSlot) return;
+    setBookingSubmitting(true); setBookingError("");
+    try {
+      const id = await createClientAppointment({ professionalId: selected.professionalId, serviceId: selected.id, slotStart: selectedSlot.start });
+      setAppointmentId(id); setConfirmed(true); await onAppointmentCreated();
+    } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "";
+
+        const expectedError = [
+          "não está mais disponível",
+          "acabou de ser reservado",
+          "já possui um horário ativo",
+          "limite de 3 agendamentos futuros",
+        ].some((text) => message.includes(text));
+
+        setBookingError(
+          expectedError
+            ? message
+            : "Não foi possível confirmar o agendamento. Tente novamente.",
+        );
+
+        setAvailabilityReload((value) => value + 1);
+      } finally { setBookingSubmitting(false); }
+  }
   const slideClient = (direction: number) =>
     clientCarousel.current?.scrollBy({
       left: direction * clientCarousel.current.clientWidth * 0.82,
@@ -56,6 +117,7 @@ function ServiceScheduling() {
         <small>
           O pagamento de R$ {selected.price},00 será realizado no local.
         </small>
+        <small className="appointment-reference">Código do agendamento: {appointmentId.slice(0, 8).toUpperCase()}</small>
         <div className="confirmation-channels"><span>✓ Confirmação registrada no aplicativo</span><span>✉ E-mail preparado pelo Resend</span><span>◍ WhatsApp Business preparado</span><small>{selected.professional} também será avisada conforme as preferências dela.</small></div>
         <button
           className="primary"
@@ -63,6 +125,9 @@ function ServiceScheduling() {
             setConfirmed(false);
             setSelected(null);
             setTime("");
+            setSelectedSlot(null);
+            setAppointmentId("");
+            setAvailabilityReload((value) => value + 1);
           }}
         >
           Ver outros serviços
@@ -77,26 +142,18 @@ function ServiceScheduling() {
           onClick={() => {
             setSelected(null);
             setTime("");
+            setSelectedSlot(null);
+            setBookingError("");
           }}
         >
           ← Voltar para serviços
         </button>
         <div className="schedule-layout">
           <section className="selected-service">
-            <img
-              src={
-                selected.professional === "Dayanne"
-                  ? "/nails-detail.png"
-                  : "/eliane-care.png"
-              }
-              alt=""
-            />
+            <img src={selected.image || (selected.professional === "Dayanne" ? "/nails-detail.png" : "/eliane-care.png")} alt={selected.name} />
             <span className="eyebrow">{selected.category}</span>
             <h2>{selected.name}</h2>
-            <p>
-              Atendimento personalizado, realizado com cuidado e produtos
-              selecionados para proporcionar conforto e excelentes resultados.
-            </p>
+            <p>{selected.description}</p>
             <div className="service-facts">
               <span>
                 ◷ <b>{selected.duration} min</b>
@@ -109,15 +166,8 @@ function ServiceScheduling() {
               <span>{selected.professional[0]}</span>
               <div>
                 <small>PROFISSIONAL RESPONSÁVEL</small>
-                <b>
-                  {selected.professional}{" "}
-                  {selected.professional === "Eliane" ? "Cristina" : "Costa"}
-                </b>
-                <em>
-                  {selected.professional === "Eliane"
-                    ? "Massagista & Esteticista"
-                    : "Manicure & Nail designer"}
-                </em>
+                <b>{selected.professionalFullName || selected.professional}</b>
+                <em>{selected.specialty || (selected.professional === "Eliane" ? "Massagista & Esteticista" : "Manicure & Nail designer")}</em>
               </div>
             </div>
           </section>
@@ -127,7 +177,7 @@ function ServiceScheduling() {
             <p>Selecione uma data para ver os horários livres.</p>
             <div className="availability-month">
               <label>Data do atendimento</label>
-              <input type="date" min={today.toISOString().slice(0, 10)} value={selectedDate} onChange={(event) => {setSelectedDate(event.target.value);setTime("");}} />
+              <input type="date" min={today.toISOString().slice(0, 10)} value={selectedDate} onChange={(event) => {setSelectedDate(event.target.value);setTime("");setSelectedSlot(null);setBookingError("");}} />
             </div>
             <div className="availability-days">
               {Array.from({length:6},(_,index)=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+index);return date;}).map((date) => {
@@ -138,6 +188,8 @@ function ServiceScheduling() {
                   onClick={() => {
                     setSelectedDate(value);
                     setTime("");
+                    setSelectedSlot(null);
+                    setBookingError("");
                   }}
                   key={value}
                 >
@@ -149,18 +201,20 @@ function ServiceScheduling() {
             </div>
             <label>Horários disponíveis</label>
             <div className="available-times">
-              {hourlySlots(9, selected.professional === "Eliane" ? 19 : 18, 60).map((t, i) => (
+              {availableSlots.map((slot) => (
                 <button
-                  disabled={new Date(`${selectedDate}T${t}:00`) <= today || (new Date(`${selectedDate}T12:00:00`).getDate() + i) % 5 === 0}
-                  className={time === t ? "active" : ""}
-                  onClick={() => setTime(t)}
-                  key={t}
+                  className={time === slot.label ? "active" : ""}
+                  onClick={() => { setTime(slot.label); setSelectedSlot(slot); setBookingError(""); }}
+                  key={slot.start}
                 >
-                  {t}
-                  {new Date(`${selectedDate}T${t}:00`) <= today ? <small>horário passado</small> : (new Date(`${selectedDate}T12:00:00`).getDate() + i) % 5 === 0 && <small>ocupado</small>}
+                  {slot.label}
                 </button>
               ))}
             </div>
+            {slotsLoading && <div className="slots-feedback"><span>✦</span> Consultando agenda...</div>}
+            {slotsError && <div className="slots-feedback error"><span>{slotsError}</span><button onClick={() => setAvailabilityReload((value) => value + 1)}>Tentar novamente</button></div>}
+            {!slotsLoading && !slotsError && availableSlots.length === 0 && <div className="slots-feedback">Não há horários livres nesta data. Escolha outro dia.</div>}
+            {bookingError && <div className="booking-error">{bookingError}</div>}
             <div className="duration-allocation"><span>◷</span><div><b>{selected.duration} minutos reservados</b><small>Este serviço ocupará automaticamente {Math.ceil(selected.duration / 60)} bloco(s) consecutivo(s) na agenda de {selected.professional}.</small></div></div>
             <div className="schedule-summary">
               <div>
@@ -178,10 +232,10 @@ function ServiceScheduling() {
             </div>
             <button
               className="primary confirm-schedule"
-              disabled={!time || selectedDate < today.toISOString().slice(0, 10)}
-              onClick={() => setConfirmed(true)}
+              disabled={!selectedSlot || bookingSubmitting || selectedDate < today.toISOString().slice(0, 10)}
+              onClick={confirmAppointment}
             >
-              Confirmar agendamento →
+              {bookingSubmitting ? "Confirmando horário..." : "Confirmar agendamento →"}
             </button>
             <small className="schedule-note">
               Nenhum pagamento será solicitado agora.
@@ -202,7 +256,7 @@ function ServiceScheduling() {
       </div>
       <div className="services-tools client-tools">
         <div className="catalog-filters">
-          {serviceFilters.map((f) => (
+          {filters.map((f) => (
             <button
               className={catalogFilter === f ? "active" : ""}
               onClick={() => {
@@ -230,25 +284,19 @@ function ServiceScheduling() {
           </button>
         </div>
       </div>
+      {catalogLoading && <div className="catalog-feedback"><span>✦</span><p>Carregando os serviços...</p></div>}
+      {catalogError && <div className="catalog-feedback error"><p>{catalogError}</p><button onClick={loadCatalog}>Tentar novamente</button></div>}
+      {!catalogLoading && !catalogError && catalog.length === 0 && <div className="catalog-feedback"><p>Nenhum serviço disponível no momento.</p></div>}
       <div className="client-service-grid mobile-carousel" ref={clientCarousel}>
-        {filterServices(catalogFilter).map((s, i) => (
-          <article key={s.name}>
+        {visibleServices.map((s) => (
+          <article key={`${s.id}-${s.professionalId}`}>
             <div className="client-service-image">
-              <img
-                src={
-                  s.professional === "Dayanne"
-                    ? "/nails-detail.png"
-                    : i % 2
-                      ? "/team-access.png"
-                      : "/eliane-care.png"
-                }
-                alt=""
-              />
+              <img src={s.image || (s.professional === "Dayanne" ? "/nails-detail.png" : "/eliane-care.png")} alt={s.name} />
               <span>{s.category}</span>
             </div>
             <div className="client-service-body">
               <h3>{s.name}</h3>
-              <p>Protocolo completo pensado para o seu bem-estar.</p>
+              <p>{s.description}</p>
               <div className="service-provider">
                 <span>{s.professional[0]}</span>
                 <div>
@@ -294,12 +342,73 @@ function ClientMediaCarousel({ items, onSchedule }: { items: ServiceMedia[]; onS
   );
 }
 
+const appointmentStatusLabel: Record<ClientAppointment["status"], string> = {
+  pending: "Pendente",
+  confirmed: "Confirmado",
+  completed: "Concluído",
+  cancelled: "Cancelado",
+  no_show: "Não compareceu",
+};
+
+function appointmentDay(isoDate: string) {
+  return new Date(isoDate).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(" de ", " ").replace(".", "").toUpperCase();
+}
+
+function appointmentTime(isoDate: string) {
+  return new Date(isoDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+
+function appointmentLongDate(isoDate: string) {
+  return new Date(isoDate).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+}
+
 export function ClientDashboard({ logout, mediaItems, profile }: { logout: () => void; mediaItems: ServiceMedia[]; profile: AuthProfile | null }) {
   const [tab, setTab] = useState("Serviços");
+  const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(true);
+  const [appointmentsError, setAppointmentsError] = useState("");
+  const [cancellingId, setCancellingId] = useState("");
+  const [
+    appointmentToCancel,
+    setAppointmentToCancel,
+  ] = useState<ClientAppointment | null>(null);
+  const [displayName, setDisplayName] = useState(
+    profile?.full_name || "Cliente",
+  );
+
   const goServices = () => setTab("Serviços");
-  const clientName = profile?.full_name || "Cliente";
+  const clientName = displayName;
   const firstName = clientName.split(" ")[0];
   const initials = clientName.split(" ").slice(0, 2).map((name) => name[0]).join("").toUpperCase();
+  const now = new Date();
+  const upcomingAppointments = appointments.filter((item) => new Date(item.start) > now && ["pending", "confirmed"].includes(item.status)).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  const historyAppointments = appointments.filter((item) => new Date(item.start) <= now || ["completed", "cancelled", "no_show"].includes(item.status)).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+  const nextAppointment = upcomingAppointments[0];
+
+  async function loadAppointments() {
+    setAppointmentsLoading(true); setAppointmentsError("");
+    try { setAppointments(await getClientAppointments()); }
+    catch { setAppointmentsError("Não foi possível carregar seus agendamentos."); }
+    finally { setAppointmentsLoading(false); }
+  }
+
+  useEffect(() => { void loadAppointments(); }, []);
+
+  async function cancelAppointment(item: ClientAppointment) {
+    setCancellingId(item.id);
+    setAppointmentsError("");
+
+    try {
+      await cancelClientAppointment(item.id);
+      await loadAppointments();
+    } catch {
+      setAppointmentsError(
+        "Não foi possível cancelar o agendamento.",
+      );
+    } finally {
+      setCancellingId("");
+    }
+  }
   return (
     <div className="client-portal">
       <header>
@@ -352,30 +461,19 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
             </button>
           )}
         </div>
-        {tab === "Serviços" && <ServiceScheduling />}
+        {tab === "Serviços" && <ServiceScheduling onAppointmentCreated={loadAppointments} />}
         {tab === "Início" && (
           <>
             <ClientMediaCarousel items={mediaItems} onSchedule={goServices} />
-            <section className="next-appointment">
-              <div className="date-box">
-                <b>12</b>
-                <span>AGO</span>
-              </div>
-              <div>
-                <span className="eyebrow">PRÓXIMO AGENDAMENTO</span>
-                <h2>Drenagem Linfática</h2>
-                <p>Quarta-feira, 12 de agosto às 14:30 · com Eliane</p>
-                <div>
-                  <span>◷ 50 minutos</span>
-                  <span>⌖ SPA Express Cambucás</span>
-                </div>
-              </div>
-              <em className="confirmado">Confirmado</em>
-              <div className="appointment-buttons">
-                <button>Reagendar</button>
-                <button>Cancelar</button>
-              </div>
-            </section>
+            {appointmentsLoading ? <div className="appointments-feedback">Carregando seu próximo cuidado...</div> : nextAppointment ? (
+              <section className="next-appointment">
+                <div className="date-box"><b>{new Date(nextAppointment.start).getDate().toString().padStart(2, "0")}</b><span>{new Date(nextAppointment.start).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}</span></div>
+                <div><span className="eyebrow">PRÓXIMO AGENDAMENTO</span><h2>{nextAppointment.serviceName}</h2><p>{appointmentLongDate(nextAppointment.start)} às {appointmentTime(nextAppointment.start)} · com {nextAppointment.professionalName}</p><div><span>◷ {nextAppointment.duration} minutos</span><span>⌖ SPA Express Cambucás</span></div></div>
+                <em className="confirmado">{appointmentStatusLabel[nextAppointment.status]}</em>
+                <div className="appointment-buttons"><button onClick={() => setTab("Meus agendamentos")}>Detalhes</button><button disabled={cancellingId === nextAppointment.id} onClick={() => cancelAppointment(nextAppointment)}>{cancellingId === nextAppointment.id ? "Cancelando..." : "Cancelar"}</button></div>
+              </section>
+            ) : <div className="appointments-feedback empty"><b>Nenhum horário marcado</b><span>Escolha um serviço para reservar seu próximo momento.</span><button onClick={goServices}>Ver serviços</button></div>}
+            {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
             <div className="client-grid">
               <section className="screen-card">
                 <div className="panel-head">
@@ -387,32 +485,19 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
                     Ver histórico →
                   </button>
                 </div>
-                {[
-                  ["02 AGO", "Manicure em Gel", "Dayanne"],
-                  ["21 JUL", "Limpeza de Pele", "Eliane"],
-                  ["10 JUL", "Massagem Relaxante", "Eliane"],
-                ].map((x) => (
-                  <div className="history-row" key={x[0]}>
-                    <span>{x[0]}</span>
-                    <div>
-                      <b>{x[1]}</b>
-                      <small>com {x[2]}</small>
-                    </div>
-                    <em>Concluído</em>
-                    <button onClick={goServices}>Agendar novamente</button>
-                  </div>
-                ))}
+                {historyAppointments.slice(0, 3).map((item) => <div className="history-row" key={item.id}><span>{appointmentDay(item.start)}</span><div><b>{item.serviceName}</b><small>com {item.professionalName}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar novamente</button></div>)}
+                {!appointmentsLoading && historyAppointments.length === 0 && <div className="appointments-inline-empty">Seus atendimentos concluídos aparecerão aqui.</div>}
               </section>
               <section className="client-loyalty">
                 <span>✦</span>
                 <h2>Seu autocuidado merece recompensa</h2>
                 <p>
-                  Você já realizou <b>8 atendimentos</b> conosco.
+                  Você já realizou <b>{appointments.filter((item) => item.status === "completed").length} atendimentos</b> conosco.
                 </p>
                 <div>
-                  <i style={{ width: "100%" }} />
+                  <i style={{ width: `${Math.min(appointments.filter((item) => item.status === "completed").length * 10, 100)}%` }} />
                 </div>
-                <small>Faltam 2 visitas para ganhar 15% de desconto</small>
+                <small>Seu histórico de autocuidado é atualizado automaticamente.</small>
               </section>
             </div>
           </>
@@ -420,73 +505,57 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
         {tab === "Meus agendamentos" && (
           <div className="screen-card client-list">
             <h2>Próximos horários</h2>
-            {[
-              ["12 AGO", "Drenagem Linfática", "14:30", "Eliane"],
-              ["25 AGO", "Manicure em Gel", "10:00", "Dayanne"],
-            ].map((x) => (
-              <div className="client-booking" key={x[0]}>
-                <span>{x[0]}</span>
-                <div>
-                  <h3>{x[1]}</h3>
-                  <p>
-                    às {x[2]} · com {x[3]}
-                  </p>
-                </div>
-                <em className="confirmado">Confirmado</em>
-                <button>Reagendar</button>
-                <button>Cancelar</button>
-              </div>
-            ))}
+            {appointmentsLoading && <div className="appointments-inline-empty">Carregando agendamentos...</div>}
+            {!appointmentsLoading && upcomingAppointments.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")} · pagamento {item.paymentStatus === "paid" ? "confirmado" : "no local"}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar outro</button><button disabled={cancellingId === item.id} onClick={() => setAppointmentToCancel(item)}>{cancellingId === item.id ? "Cancelando..." : "Cancelar"}</button></div>)}
+            {!appointmentsLoading && upcomingAppointments.length === 0 && <div className="appointments-inline-empty">Você ainda não possui horários futuros. <button onClick={goServices}>Agendar agora</button></div>}
+            {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
           </div>
         )}
         {tab === "Histórico" && (
           <div className="screen-card client-list">
             <h2>Histórico de atendimentos</h2>
-            {services.slice(0, 5).map((s, i) => (
-              <div className="client-booking" key={s.name}>
-                <span>0{i + 2} JUL</span>
-                <div>
-                  <h3>{s.name}</h3>
-                  <p>
-                    com {s.professional} · R$ {s.price}
-                  </p>
-                </div>
-                <em className="concluído">Concluído</em>
-                <button onClick={goServices}>Agendar novamente</button>
-              </div>
-            ))}
+            {appointmentsLoading && <div className="appointments-inline-empty">Carregando histórico...</div>}
+            {!appointmentsLoading && historyAppointments.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>{appointmentLongDate(item.start)} às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar novamente</button></div>)}
+            {!appointmentsLoading && historyAppointments.length === 0 && <div className="appointments-inline-empty">Seu histórico ainda está vazio.</div>}
+            {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
           </div>
         )}
         {tab === "Meu perfil" && (
-          <div className="screen-card profile-form">
-            <h2>Meus dados</h2>
-            <p>Mantenha seus dados de contato atualizados.</p>
-            <div className="form-grid">
-              <label>
-                Nome completo
-                <input defaultValue={clientName} />
-              </label>
-              <label>
-                WhatsApp
-                <input defaultValue="(21) 99999-1234" />
-              </label>
-              <label>
-                E-mail
-                <input defaultValue={profile?.email || ""} />
-              </label>
-              <label>
-                Data de nascimento
-                <input defaultValue="10/05/1992" />
-              </label>
-              <label className="wide">
-                Observações importantes
-                <textarea defaultValue="Prefiro atendimentos no período da tarde." />
-              </label>
-            </div>
-            <button className="primary">Salvar alterações</button>
-          </div>
+          <ClientProfileForm
+            profile={profile}
+            onNameChange={setDisplayName}
+          />
         )}
       </main>
+      <ActionDialog
+        open={appointmentToCancel !== null}
+        title="Cancelar seu horário?"
+        description={
+          appointmentToCancel
+            ? `${appointmentToCancel.serviceName} em ${appointmentLongDate(
+                appointmentToCancel.start,
+              )} às ${appointmentTime(
+                appointmentToCancel.start,
+              )}. O horário ficará disponível novamente.`
+            : ""
+        }
+        confirmLabel="Cancelar agendamento"
+        danger
+        loading={
+          appointmentToCancel
+            ? cancellingId === appointmentToCancel.id
+            : false
+        }
+        onCancel={() => setAppointmentToCancel(null)}
+        onConfirm={() => {
+          if (!appointmentToCancel) return;
+
+          const appointment = appointmentToCancel;
+          setAppointmentToCancel(null);
+
+          void cancelAppointment(appointment);
+        }}
+      />
     </div>
   );
 }
