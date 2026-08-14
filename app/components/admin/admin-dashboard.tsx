@@ -1,8 +1,17 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { bookings, services, type Booking, type ServiceMedia } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
+import {
+  confirmAdminPayment,
+  getAdminAppointments,
+  getAdminOverview,
+  type AdminAppointment,
+  type AdminOverview,
+  type AdminPaymentMethod,
+} from "../../lib/services/admin-dashboard-service";
+
 function AdminContent({
   section,
   filter,
@@ -10,60 +19,161 @@ function AdminContent({
   setAddOpen,
   mediaItems,
   setMediaItems,
-}: {
+  overview,
+  overviewLoading,
+  overviewError,
+  reloadOverview,
+  adminAppointments,
+  adminAppointmentsLoading,
+  adminAppointmentsError,
+  }: {
   section: string;
   filter: string;
   setFilter: (v: string) => void;
   setAddOpen: (v: boolean) => void;
   mediaItems: ServiceMedia[];
   setMediaItems: React.Dispatch<React.SetStateAction<ServiceMedia[]>>;
+  overview: AdminOverview | null;
+  overviewLoading: boolean;
+  overviewError: string;
+  reloadOverview: () => Promise<void>;
+  adminAppointments: AdminAppointment[];
+  adminAppointmentsLoading: boolean;
+  adminAppointmentsError: string;
 }) {
-  const filtered =
+  const [appointmentSearch, setAppointmentSearch] = useState("");
+  const [appointmentStatus, setAppointmentStatus] = useState("Todos");
+  const [appointmentProfessional, setAppointmentProfessional] =
+    useState("Todos");
+  const todayAppointments = overview?.todayAppointments ?? [];
+
+  const filteredTodayAppointments =
     filter === "Todos"
-      ? bookings
-      : bookings.filter((b) => b.professional === filter);
+      ? todayAppointments
+      : todayAppointments.filter(
+          (appointment) => appointment.professionalName === filter,
+        );
+
+  const todayLabel = new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(new Date());
+  const normalizedAppointmentSearch = appointmentSearch
+    .trim()
+    .toLocaleLowerCase("pt-BR");
+
+  const filteredAdminAppointments = adminAppointments.filter(
+    (appointment) => {
+      const matchesSearch =
+        !normalizedAppointmentSearch ||
+        appointment.clientName
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedAppointmentSearch) ||
+        appointment.serviceName
+          .toLocaleLowerCase("pt-BR")
+          .includes(normalizedAppointmentSearch);
+
+      const matchesStatus =
+        appointmentStatus === "Todos" ||
+        (appointmentStatus === "payment_pending" &&
+          appointment.paymentStatus === "pending") ||
+        (appointmentStatus === "payment_paid" &&
+          appointment.paymentStatus === "paid") ||
+        (!appointmentStatus.startsWith("payment_") &&
+          appointment.status === appointmentStatus);
+
+      const matchesProfessional =
+        appointmentProfessional === "Todos" ||
+        appointment.professionalName === appointmentProfessional;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesProfessional
+      );
+    },
+  );
   if (section === "Visão geral")
     return (
       <>
+        {overviewError && (
+          <div className="admin-data-message admin-data-message--error">
+            {overviewError}
+          </div>
+        )}
+
+        {overviewLoading && (
+          <div className="admin-data-message">
+            Carregando informações do SPA...
+          </div>
+        )}
+
         <section className="stats">
           <article>
             <div>
               <span>Agendamentos hoje</span>
               <Icon>◷</Icon>
             </div>
-            <b>8</b>
-            <p className="positive">
-              ↗ 14% <small>vs. semana passada</small>
+
+            <b>{overviewLoading ? "..." : overview?.appointmentsToday ?? 0}</b>
+
+            <p>
+              <small>Horários ativos na agenda de hoje</small>
             </p>
           </article>
+
           <article>
             <div>
-              <span>Atendimentos no mês</span>
+              <span>Agendamentos no mês</span>
               <Icon>✓</Icon>
             </div>
-            <b>124</b>
-            <p className="positive">
-              ↗ 8% <small>vs. mês passado</small>
+
+            <b>{overviewLoading ? "..." : overview?.appointmentsThisMonth ?? 0}</b>
+
+            <p>
+              <small>
+                {overview?.completedThisMonth ?? 0} atendimento(s) concluído(s)
+              </small>
             </p>
           </article>
+
           <article>
             <div>
-              <span>Taxa de ocupação</span>
-              <Icon>↗</Icon>
+              <span>Receita recebida</span>
+              <Icon>R$</Icon>
             </div>
-            <b>78%</b>
-            <p className="positive">
-              ↗ 5% <small>vs. mês passado</small>
+
+            <b>
+              {overviewLoading
+                ? "..."
+                : (overview?.receivedThisMonth ?? 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+            </b>
+
+            <p>
+              <small>
+                {(overview?.pendingThisMonth ?? 0).toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}{" "}
+                pendente
+              </small>
             </p>
           </article>
+
           <article>
             <div>
-              <span>Novos clientes</span>
+              <span>Clientes cadastrados</span>
               <Icon>♧</Icon>
             </div>
-            <b>18</b>
-            <p className="positive">
-              ↗ 12% <small>este mês</small>
+
+            <b>{overviewLoading ? "..." : overview?.clientsTotal ?? 0}</b>
+
+            <p>
+              <small>Contas de clientes ativas</small>
             </p>
           </article>
         </section>
@@ -72,26 +182,36 @@ function AdminContent({
             <div className="panel-head">
               <div>
                 <h2>Agenda de hoje</h2>
-                <p>Sexta-feira, 07 de agosto</p>
+                <p>{todayLabel}</p>
               </div>
               <div className="filters">
-                {["Todos", "Eliane", "Dayanne"].map((f) => (
+                {[
+                  "Todos",
+                  ...(overview?.professionals.map(
+                    (professional) => professional.professionalName,
+                  ) ?? []),
+                ].map((professionalName) => (
                   <button
-                    className={filter === f ? "active" : ""}
-                    onClick={() => setFilter(f)}
-                    key={f}
+                    className={filter === professionalName ? "active" : ""}
+                    onClick={() => setFilter(professionalName)}
+                    key={professionalName}
                   >
-                    {f}
+                    {professionalName === "Todos"
+                      ? "Todos"
+                      : professionalName.split(" ")[0]}
                   </button>
                 ))}
               </div>
             </div>
-            <AdminTable rows={filtered} />
+            <AdminTodayTable
+              rows={filteredTodayAppointments}
+              onPaymentConfirmed={reloadOverview}
+            />
             <button className="see-all">Ver agenda completa →</button>
           </div>
           <div className="right-column">
-            <ServiceRanking />
-            <TeamCard />
+          <ServiceRanking rows={overview?.serviceRanking ?? []} />
+          <TeamCard rows={overview?.professionals ?? []} />
           </div>
         </section>
         <QuickActions action={() => setAddOpen(true)} />
@@ -172,31 +292,100 @@ function AdminContent({
           action={() => setAddOpen(true)}
         />
         <div className="table-filters">
-          <input placeholder="⌕ Buscar por cliente ou serviço" />
-          <select>
-            <option>Todos os status</option>
-            <option>Confirmado</option>
-            <option>Pendente</option>
+          <input
+            value={appointmentSearch}
+            onChange={(event) =>
+              setAppointmentSearch(event.target.value)
+            }
+            placeholder="⌕ Buscar por cliente ou serviço"
+          />
+
+          <select
+            value={appointmentStatus}
+            onChange={(event) =>
+              setAppointmentStatus(event.target.value)
+            }
+          >
+            <option value="Todos">Todos os status</option>
+
+            <optgroup label="Pagamento">
+              <option value="payment_pending">
+                Pagamento pendente
+              </option>
+
+              <option value="payment_paid">
+                Pagamento pago
+              </option>
+            </optgroup>
+
+            <optgroup label="Atendimento">
+              <option value="pending">
+                Atendimento pendente
+              </option>
+
+              <option value="confirmed">
+                Atendimento confirmado
+              </option>
+
+              <option value="completed">
+                Atendimento concluído
+              </option>
+
+              <option value="cancelled">
+                Atendimento cancelado
+              </option>
+
+              <option value="no_show">
+                Não compareceu
+              </option>
+            </optgroup>
           </select>
-          <select>
-            <option>Todas as profissionais</option>
+
+          <select
+            value={appointmentProfessional}
+            onChange={(event) =>
+              setAppointmentProfessional(event.target.value)
+            }
+          >
+            <option value="Todos">Todas as profissionais</option>
+
+            {(overview?.professionals ?? []).map((professional) => (
+              <option
+                key={professional.professionalName}
+                value={professional.professionalName}
+              >
+                {professional.professionalName}
+              </option>
+            ))}
           </select>
         </div>
-        <AdminTable
-          rows={[
-            ...bookings,
-            ...bookings.map((b, i) => ({
-              ...b,
-              time: `${16 + i}:00`,
-              client: [
-                "Juliana Rocha",
-                "Patrícia Nunes",
-                "Aline Moraes",
-                "Renata Dias",
-              ][i],
-            })),
-          ]}
-        />
+
+        {adminAppointmentsError && (
+          <div className="admin-data-message admin-data-message--error">
+            {adminAppointmentsError}
+          </div>
+        )}
+
+        {adminAppointmentsLoading ? (
+          <div className="admin-data-message">
+            Carregando agendamentos...
+          </div>
+        ) : (
+          <>
+            <div className="admin-results-count">
+              {filteredAdminAppointments.length}{" "}
+              {filteredAdminAppointments.length === 1
+                ? "agendamento encontrado"
+                : "agendamentos encontrados"}
+            </div>
+
+            <AdminTodayTable
+              rows={filteredAdminAppointments}
+              onPaymentConfirmed={reloadOverview}
+              showDate
+            />
+          </>
+        )}
       </div>
     );
   if (section === "Serviços")
@@ -552,6 +741,311 @@ function ScreenTop({
     </div>
   );
 }
+
+function AdminTodayTable({
+  rows,
+  onPaymentConfirmed,
+  showDate = false,
+}: {
+  rows: AdminOverview["todayAppointments"];
+  onPaymentConfirmed: () => Promise<void>;
+  showDate?: boolean;
+}) {
+  const [paymentAppointment, setPaymentAppointment] = useState<
+    AdminOverview["todayAppointments"][number] | null
+  >(null);
+
+  const [paymentMethod, setPaymentMethod] =
+    useState<AdminPaymentMethod>("pix");
+
+  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
+
+  function appointmentTime(date: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(date));
+  }
+
+  function appointmentDate(date: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+      .format(new Date(date))
+      .replace(".", "");
+  }
+
+  function appointmentDuration(start: string, end: string) {
+    const duration =
+      new Date(end).getTime() - new Date(start).getTime();
+
+    return Math.max(0, Math.round(duration / 60000));
+  }
+
+  function appointmentStatus(status: string) {
+    const labels: Record<string, string> = {
+      pending: "Pendente",
+      confirmed: "Confirmado",
+      completed: "Concluído",
+      cancelled: "Cancelado",
+      no_show: "Não compareceu",
+    };
+
+    return labels[status] ?? status;
+  }
+
+  function openPayment(
+    appointment: AdminOverview["todayAppointments"][number],
+  ) {
+    setPaymentAppointment(appointment);
+    setPaymentMethod("pix");
+    setPaymentNotes("");
+    setPaymentError("");
+  }
+
+  function closePayment() {
+    if (paymentSaving) return;
+
+    setPaymentAppointment(null);
+    setPaymentNotes("");
+    setPaymentError("");
+  }
+
+  async function submitPayment(
+    event: React.FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+
+    if (!paymentAppointment) return;
+
+    setPaymentSaving(true);
+    setPaymentError("");
+
+    try {
+      await confirmAdminPayment({
+        appointmentId: paymentAppointment.id,
+        method: paymentMethod,
+        notes: paymentNotes,
+      });
+
+      await onPaymentConfirmed();
+      setPaymentAppointment(null);
+      setPaymentNotes("");
+    } catch (error) {
+      setPaymentError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível confirmar o pagamento.",
+      );
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
+  return (
+    <>
+      {rows.length === 0 ? (
+        <div className="admin-empty-state">
+          <Icon>◷</Icon>
+
+          <div>
+            <b>Nenhum atendimento para hoje</b>
+            <p>A agenda está livre no momento.</p>
+          </div>
+        </div>
+      ) : (
+        <div className="booking-list">
+          {rows.map((appointment) => {
+            const professionalFirstName =
+              appointment.professionalName.split(" ")[0];
+
+            const professionalClass =
+              professionalFirstName.toLowerCase();
+
+            const isPaid = appointment.paymentStatus === "paid";
+            const canConfirm =
+              appointment.paymentStatus === "pending";
+
+            return (
+              <div className="booking-row" key={appointment.id}>
+                <div className="booking-time">
+                  <b>{appointmentTime(appointment.startAt)}</b>
+                    <span>
+                      {showDate && (
+                        <>
+                          {appointmentDate(appointment.startAt)}
+                          {" · "}
+                        </>
+                      )}
+
+                      {appointmentDuration(
+                        appointment.startAt,
+                        appointment.endAt,
+                      )}{" "}
+                      min
+                    </span>
+                </div>
+
+                <span className={`line ${professionalClass}`} />
+
+                <div className="client-avatar">
+                  {appointment.clientName
+                    .split(" ")
+                    .map((name) => name[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+
+                <div className="booking-info">
+                  <b>{appointment.clientName}</b>
+                  <span>{appointment.serviceName}</span>
+                </div>
+
+                <div className="professional">
+                  <span>{professionalFirstName[0]}</span>
+                  {professionalFirstName}
+                </div>
+
+                <em className={appointment.status}>
+                  {appointmentStatus(appointment.status)}
+                </em>
+
+                <div className="payment-control">
+                  <strong>
+                    {appointment.price.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </strong>
+
+                  <button
+                    type="button"
+                    className={isPaid ? "paid" : ""}
+                    disabled={!canConfirm}
+                    onClick={() => openPayment(appointment)}
+                  >
+                    {isPaid
+                      ? "✓ Pago"
+                      : canConfirm
+                        ? "Confirmar pagamento"
+                        : "Pagamento indisponível"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {paymentAppointment && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={closePayment}
+        >
+          <form
+            className="simple-modal admin-payment-modal"
+            onSubmit={submitPayment}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="modal-close"
+              onClick={closePayment}
+              disabled={paymentSaving}
+              aria-label="Fechar"
+            >
+              ×
+            </button>
+
+            <span className="eyebrow">PAGAMENTO NO LOCAL</span>
+            <h2>Confirmar pagamento</h2>
+
+            <p className="admin-payment-description">
+              Confirme o recebimento de{" "}
+              <strong>
+                {paymentAppointment.price.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </strong>{" "}
+              referente ao serviço{" "}
+              <strong>{paymentAppointment.serviceName}</strong> de{" "}
+              {paymentAppointment.clientName}.
+            </p>
+
+            {paymentError && (
+              <div className="admin-data-message admin-data-message--error">
+                {paymentError}
+              </div>
+            )}
+
+            <div className="admin-payment-fields">
+              <label>
+                Forma de pagamento
+
+                <select
+                  value={paymentMethod}
+                  onChange={(event) =>
+                    setPaymentMethod(
+                      event.target.value as AdminPaymentMethod,
+                    )
+                  }
+                  disabled={paymentSaving}
+                >
+                  <option value="pix">PIX</option>
+                  <option value="dinheiro">Dinheiro</option>
+                  <option value="cartao">Cartão</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </label>
+
+              <label>
+                Observação
+
+                <textarea
+                  value={paymentNotes}
+                  onChange={(event) =>
+                    setPaymentNotes(event.target.value)
+                  }
+                  placeholder="Opcional"
+                  maxLength={500}
+                  disabled={paymentSaving}
+                />
+              </label>
+            </div>
+
+            <div className="admin-payment-actions">
+              <button
+                type="button"
+                onClick={closePayment}
+                disabled={paymentSaving}
+              >
+                Voltar
+              </button>
+
+              <button
+                type="submit"
+                className="primary"
+                disabled={paymentSaving}
+              >
+                {paymentSaving
+                  ? "Confirmando..."
+                  : "Confirmar recebimento"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
+  );
+}
+
 export function AdminTable({ rows }: { rows: Booking[] }) {
   const [paid, setPaid] = useState<string[]>(
     rows.filter((row) => row.paymentStatus === "Pago").map((row) => `${row.time}-${row.client}`),
@@ -596,61 +1090,109 @@ export function AdminTable({ rows }: { rows: Booking[] }) {
     </div>
   );
 }
-function ServiceRanking() {
+function ServiceRanking({
+  rows,
+}: {
+  rows: AdminOverview["serviceRanking"];
+}) {
+  const highestTotal = Math.max(
+    ...rows.map((service) => service.total),
+    1,
+  );
+
   return (
     <div className="panel performance">
       <div className="panel-head">
         <div>
           <h2>Serviços mais agendados</h2>
-          <p>Últimos 30 dias</p>
+          <p>Mês atual</p>
         </div>
-        <button>•••</button>
       </div>
-      {[
-        ["Drenagem Linfática", 42, 85],
-        ["Manicure em Gel", 35, 70],
-        ["Massagem Relaxante", 28, 56],
-        ["Limpeza de Pele", 24, 48],
-      ].map((s, i) => (
-        <div className="bar-row" key={String(s[0])}>
-          <span>{i + 1}</span>
+
+      {rows.length === 0 && (
+        <div className="admin-ranking-empty">
+          Nenhum serviço agendado neste mês.
+        </div>
+      )}
+
+      {rows.map((service, index) => (
+        <div className="bar-row" key={service.serviceName}>
+          <span>{index + 1}</span>
+
           <div>
-            <b>{s[0]}</b>
+            <b>{service.serviceName}</b>
+
             <div className="bar">
-              <i style={{ width: `${s[2]}%` }} />
+              <i
+                style={{
+                  width: `${Math.round(
+                    (service.total / highestTotal) * 100,
+                  )}%`,
+                }}
+              />
             </div>
           </div>
-          <strong>{s[1]}</strong>
+
+          <strong>{service.total}</strong>
         </div>
       ))}
     </div>
   );
 }
-function TeamCard() {
+
+function TeamCard({
+  rows,
+}: {
+  rows: AdminOverview["professionals"];
+}) {
   return (
     <div className="panel professionals">
       <div className="panel-head">
         <div>
           <h2>Equipe hoje</h2>
-          <p>Disponibilidade das profissionais</p>
+          <p>Atendimentos das profissionais</p>
         </div>
       </div>
-      {[
-        ["E", "Eliane Cristina Braido", "Massagista & Esteticista", "5 atendimentos"],
-        ["D", "Dayanne Braido", "Manicure", "3 atendimentos"],
-      ].map((x) => (
-        <div className="pro-row" key={x[1]}>
-          <span className="pro-avatar eliane">{x[0]}</span>
-          <div>
-            <b>{x[1]}</b>
-            <small>{x[2]}</small>
-          </div>
-          <em>{x[3]}</em>
+
+      {rows.length === 0 && (
+        <div className="admin-ranking-empty">
+          Nenhuma profissional ativa encontrada.
         </div>
-      ))}
+      )}
+
+      {rows.map((professional) => {
+        const firstName =
+          professional.professionalName.split(" ")[0];
+
+        return (
+          <div
+            className="pro-row"
+            key={professional.professionalName}
+          >
+            <span
+              className={`pro-avatar ${firstName.toLowerCase()}`}
+            >
+              {firstName[0]}
+            </span>
+
+            <div>
+              <b>{professional.professionalName}</b>
+              <small>{professional.specialty}</small>
+            </div>
+
+            <em>
+              {professional.appointmentsToday}{" "}
+              {professional.appointmentsToday === 1
+                ? "atendimento"
+                : "atendimentos"}
+            </em>
+          </div>
+        );
+      })}
     </div>
   );
 }
+
 function QuickActions({ action }: { action: () => void }) {
   return (
     <section className="quick-actions">
@@ -692,6 +1234,22 @@ export function AdminDashboard({
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState("");
+  const [adminAppointments, setAdminAppointments] = useState<
+    AdminAppointment[]
+  >([]);
+
+  const [
+    adminAppointmentsLoading,
+    setAdminAppointmentsLoading,
+  ] = useState(true);
+
+  const [
+    adminAppointmentsError,
+    setAdminAppointmentsError,
+  ] = useState("");
   const adminName = profile?.full_name || "Administradora";
   const adminInitials = adminName.split(" ").slice(0, 2).map((name) => name[0]).join("").toUpperCase();
   const menu = [
@@ -705,6 +1263,57 @@ export function AdminDashboard({
     "Relatórios",
     "Configurações",
   ];
+
+  async function loadOverview() {
+    setOverviewLoading(true);
+    setOverviewError("");
+
+    try {
+      const data = await getAdminOverview();
+      setOverview(data);
+    } catch (error) {
+      setOverviewError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os dados administrativos.",
+      );
+    } finally {
+      setOverviewLoading(false);
+    }
+  }
+
+  async function loadAdminAppointments() {
+    setAdminAppointmentsLoading(true);
+    setAdminAppointmentsError("");
+
+    try {
+      const data = await getAdminAppointments();
+      setAdminAppointments(data);
+    } catch (error) {
+      setAdminAppointmentsError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os agendamentos.",
+      );
+    } finally {
+      setAdminAppointmentsLoading(false);
+    }
+  }
+
+  async function reloadAdminData() {
+    await Promise.all([
+      loadOverview(),
+      loadAdminAppointments(),
+    ]);
+  }
+
+  useEffect(() => {
+    void reloadAdminData();
+
+    // Os dados devem ser carregados somente na abertura.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="admin-shell">
       <aside>
@@ -718,7 +1327,22 @@ export function AdminDashboard({
             >
               <span>{["⌂", "▦", "◷", "✦", "▣", "♙", "♧", "↗", "⚙"][i]}</span>
               {m}
-              {m === "Agendamentos" && <i>12</i>}
+              {m === "Agendamentos" &&
+                adminAppointments.filter((appointment) =>
+                  ["pending", "confirmed"].includes(
+                    appointment.status,
+                  ),
+                ).length > 0 && (
+                  <i>
+                    {
+                      adminAppointments.filter((appointment) =>
+                        ["pending", "confirmed"].includes(
+                          appointment.status,
+                        ),
+                      ).length
+                    }
+                  </i>
+                )}
             </button>
           ))}
         </nav>
@@ -761,7 +1385,14 @@ export function AdminDashboard({
           setAddOpen={setAddOpen}
           mediaItems={mediaItems}
           setMediaItems={setMediaItems}
-        />
+          overview={overview}
+          overviewLoading={overviewLoading}
+          overviewError={overviewError}
+          reloadOverview={reloadAdminData}
+          adminAppointments={adminAppointments}
+          adminAppointmentsLoading={adminAppointmentsLoading}
+          adminAppointmentsError={adminAppointmentsError}
+          />
         {addOpen && (
           <div className="modal-backdrop">
             <div className="simple-modal">

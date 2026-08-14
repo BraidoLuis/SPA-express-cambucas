@@ -1293,7 +1293,7 @@ footer {
 .panel-head p {
   font-size: 10px;
   color: var(--muted);
-  margin: 3px 0;
+  margin: 6px 0;
 }
 
 .filters {
@@ -1333,7 +1333,6 @@ footer {
 .booking-time {
   display: flex;
   flex-direction: column;
-  width: 44px;
 }
 
 .booking-time b {
@@ -2267,6 +2266,12 @@ footer {
   padding: 10px;
   border-radius: 10px;
   margin: 15px 0;
+}
+
+@media screen and (max-width: 720px){
+  .table-filters {
+    flex-direction: column !important;
+  }
 }
 
 .table-filters input {
@@ -5235,7 +5240,6 @@ small {
 
   .payment-control {
     width: 100%;
-    padding-left: 54px;
   }
 
   .payment-control button {
@@ -10373,4 +10377,135 @@ html {
   .action-dialog > footer button {
     width: 100%;
   }
+}
+
+.admin-empty-state {
+  min-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: left;
+  color: var(--muted);
+}
+
+.admin-empty-state > span {
+  flex: 0 0 auto;
+}
+
+.admin-empty-state b {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-empty-state p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.admin-ranking-empty {
+  padding: 24px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.payment-control button:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.admin-payment-modal {
+  width: min(540px, 100%);
+}
+
+.admin-payment-description {
+  margin: 12px 0 20px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.admin-payment-description strong {
+  color: var(--text);
+}
+
+.admin-payment-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-payment-fields label {
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-payment-fields select,
+.admin-payment-fields textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 12px;
+  font-size: 12px;
+}
+
+.admin-payment-fields textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.admin-payment-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.admin-payment-actions button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 16px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dark-theme .admin-payment-fields select,
+.dark-theme .admin-payment-fields textarea,
+.dark-theme .admin-payment-actions button {
+  background: var(--dark-surface-3);
+  border-color: var(--dark-border);
+  color: var(--dark-text);
+}
+
+@media (max-width: 720px) {
+  .admin-payment-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-payment-actions button {
+    width: 100%;
+  }
+}
+
+.admin-results-count {
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-results-count + .booking-list {
+  border-top: 1px solid var(--line);
+}
+
+.dark-theme .admin-results-count + .booking-list {
+  border-color: var(--dark-border);
 }
