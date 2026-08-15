@@ -6,8 +6,10 @@ import type { AuthProfile } from "../../lib/services/auth-service";
 import {
   confirmAdminPayment,
   getAdminAppointments,
+  getAdminCalendar,
   getAdminOverview,
   type AdminAppointment,
+  type AdminCalendarItem,
   type AdminOverview,
   type AdminPaymentMethod,
 } from "../../lib/services/admin-dashboard-service";
@@ -53,6 +55,38 @@ function AdminContent({
       : todayAppointments.filter(
           (appointment) => appointment.professionalName === filter,
         );
+  
+  const [adminCalendarDate, setAdminCalendarDate] = useState(
+    () => {
+      const now = new Date();
+
+      return new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      );
+    },
+  );
+
+  const [adminCalendarItems, setAdminCalendarItems] = useState<
+    AdminCalendarItem[]
+  >([]);
+
+  const [adminCalendarLoading, setAdminCalendarLoading] =
+    useState(false);
+
+  const [adminCalendarError, setAdminCalendarError] =
+    useState("");
+
+  const [
+    adminCalendarProfessional,
+    setAdminCalendarProfessional,
+  ] = useState("Todos");
+
+  const adminCalendarMonthKey = [
+    adminCalendarDate.getFullYear(),
+    String(adminCalendarDate.getMonth() + 1).padStart(2, "0"),
+  ].join("-");
 
   const todayLabel = new Intl.DateTimeFormat("pt-BR", {
     weekday: "long",
@@ -94,6 +128,46 @@ function AdminContent({
       );
     },
   );
+
+  useEffect(() => {
+    if (section !== "Agenda") return;
+
+    let active = true;
+
+    async function loadCalendar() {
+      setAdminCalendarLoading(true);
+      setAdminCalendarError("");
+
+      try {
+        const data = await getAdminCalendar(
+          adminCalendarMonthKey,
+        );
+
+        if (active) {
+          setAdminCalendarItems(data);
+        }
+      } catch (error) {
+        if (active) {
+          setAdminCalendarError(
+            error instanceof Error
+              ? error.message
+              : "Não foi possível carregar a agenda.",
+          );
+        }
+      } finally {
+        if (active) {
+          setAdminCalendarLoading(false);
+        }
+      }
+    }
+
+    void loadCalendar();
+
+    return () => {
+      active = false;
+    };
+  }, [section, adminCalendarMonthKey]);
+
   if (section === "Visão geral")
     return (
       <>
@@ -217,71 +291,23 @@ function AdminContent({
         <QuickActions action={() => setAddOpen(true)} />
       </>
     );
-  if (section === "Agenda")
-    return (
-      <div className="screen-card calendar-screen">
-        <div className="screen-toolbar">
-          <div>
-            <h2>Agosto 2026</h2>
-            <p>Organize horários e bloqueios da equipe.</p>
-          </div>
-          <div>
-            <button>‹</button>
-            <button>Hoje</button>
-            <button>›</button>
-            <button className="primary" onClick={() => setAddOpen(true)}>
-              ＋ Novo horário
-            </button>
-          </div>
-        </div>
-        <div className="week-head">
-          {[
-            "HORÁRIO",
-            "SEG 03",
-            "TER 04",
-            "QUA 05",
-            "QUI 06",
-            "SEX 07",
-            "SÁB 08",
-          ].map((x) => (
-            <b key={x}>{x}</b>
-          ))}
-        </div>
-        <div className="week-grid">
-          {[
-            "09:00",
-            "10:00",
-            "11:00",
-            "12:00",
-            "13:00",
-            "14:00",
-            "15:00",
-            "16:00",
-            "17:00",
-          ].map((t, i) => (
-            <div className="week-row" key={t}>
-              <span>{t}</span>
-              {[0, 1, 2, 3, 4, 5].map((d) => (
-                <div key={d}>
-                  {(i + d) % 5 === 0 && (
-                    <article className={(d + i) % 2 ? "nail" : "spa"}>
-                      <b>{i % 2 ? "Manicure em Gel" : "Drenagem Linfática"}</b>
-                      <small>{d % 2 ? "Carla Mendes" : "Mariana Alves"}</small>
-                    </article>
-                  )}
-                  {i === 3 && d === 4 && (
-                    <article className="blocked">
-                      <b>Horário bloqueado</b>
-                      <small>Almoço</small>
-                    </article>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    if (section === "Agenda")
+      return (
+        <AdminMonthlyCalendar
+          date={adminCalendarDate}
+          setDate={setAdminCalendarDate}
+          items={adminCalendarItems}
+          loading={adminCalendarLoading}
+          error={adminCalendarError}
+          professionalFilter={adminCalendarProfessional}
+          setProfessionalFilter={
+            setAdminCalendarProfessional
+          }
+          professionals={
+            overview?.professionals ?? []
+          }
+        />
+      );
   if (section === "Agendamentos")
     return (
       <div className="screen-card">
@@ -711,6 +737,414 @@ function AdminContent({
           </label>
         </div>
         <button className="primary">Salvar alterações</button>
+      </div>
+    </div>
+  );
+}
+
+function AdminMonthlyCalendar({
+  date,
+  setDate,
+  items,
+  loading,
+  error,
+  professionalFilter,
+  setProfessionalFilter,
+  professionals,
+}: {
+  date: Date;
+  setDate: React.Dispatch<React.SetStateAction<Date>>;
+  items: AdminCalendarItem[];
+  loading: boolean;
+  error: string;
+  professionalFilter: string;
+  setProfessionalFilter: (value: string) => void;
+  professionals: AdminOverview["professionals"];
+}) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  const firstWeekday = new Date(
+    year,
+    month,
+    1,
+  ).getDay();
+
+  const totalDays = new Date(
+    year,
+    month + 1,
+    0,
+  ).getDate();
+
+  const previousMonthDays = new Date(
+    year,
+    month,
+    0,
+  ).getDate();
+
+  const totalCells = Math.ceil(
+    (firstWeekday + totalDays) / 7,
+  ) * 7;
+
+  const calendarCells = Array.from(
+    { length: totalCells },
+    (_, index) => {
+      const currentDay = index - firstWeekday + 1;
+
+      if (currentDay < 1) {
+        return {
+          day:
+            previousMonthDays + currentDay,
+          date: new Date(
+            year,
+            month - 1,
+            previousMonthDays + currentDay,
+          ),
+          currentMonth: false,
+        };
+      }
+
+      if (currentDay > totalDays) {
+        return {
+          day: currentDay - totalDays,
+          date: new Date(
+            year,
+            month + 1,
+            currentDay - totalDays,
+          ),
+          currentMonth: false,
+        };
+      }
+
+      return {
+        day: currentDay,
+        date: new Date(
+          year,
+          month,
+          currentDay,
+        ),
+        currentMonth: true,
+      };
+    },
+  );
+
+  const filteredItems =
+    professionalFilter === "Todos"
+      ? items
+      : items.filter(
+          (item) =>
+            item.professionalName ===
+            professionalFilter,
+        );
+
+  function changeMonth(amount: number) {
+    setDate(
+      (current) =>
+        new Date(
+          current.getFullYear(),
+          current.getMonth() + amount,
+          1,
+        ),
+    );
+  }
+
+  function goToday() {
+    const now = new Date();
+
+    setDate(
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        1,
+      ),
+    );
+  }
+
+  function sameDay(
+    first: Date,
+    second: Date,
+  ) {
+    return (
+      first.getFullYear() === second.getFullYear() &&
+      first.getMonth() === second.getMonth() &&
+      first.getDate() === second.getDate()
+    );
+  }
+
+  function itemTime(value: string) {
+    return new Intl.DateTimeFormat("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date(value));
+  }
+
+  function itemClass(item: AdminCalendarItem) {
+    const professional =
+      item.professionalName
+        .split(" ")[0]
+        .toLocaleLowerCase("pt-BR");
+
+    return [
+      "admin-calendar-item",
+      professional,
+      item.type === "block" ? "block" : "",
+      item.outsideSchedule ? "outside" : "",
+      item.status === "cancelled"
+        ? "cancelled"
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  const monthInputValue = [
+    year,
+    String(month + 1).padStart(2, "0"),
+  ].join("-");
+
+  return (
+    <div className="screen-card admin-calendar-screen">
+      <div className="screen-toolbar admin-calendar-toolbar">
+        <div>
+          <h2>
+            {new Intl.DateTimeFormat("pt-BR", {
+              month: "long",
+              year: "numeric",
+            }).format(date)}
+          </h2>
+
+          <p>
+            Acompanhe os compromissos de toda a equipe.
+          </p>
+        </div>
+
+        <div className="admin-calendar-controls">
+          <select
+            value={professionalFilter}
+            onChange={(event) =>
+              setProfessionalFilter(
+                event.target.value,
+              )
+            }
+          >
+            <option value="Todos">
+              Todas as profissionais
+            </option>
+
+            {professionals.map((professional) => (
+              <option
+                value={professional.professionalName}
+                key={professional.professionalName}
+              >
+                {professional.professionalName}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="month"
+            value={monthInputValue}
+            onChange={(event) => {
+              const [selectedYear, selectedMonth] =
+                event.target.value
+                  .split("-")
+                  .map(Number);
+
+              if (
+                !selectedYear ||
+                !selectedMonth
+              ) {
+                return;
+              }
+
+              setDate(
+                new Date(
+                  selectedYear,
+                  selectedMonth - 1,
+                  1,
+                ),
+              );
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => changeMonth(-1)}
+            aria-label="Mês anterior"
+          >
+            ‹
+          </button>
+
+          <button type="button" onClick={goToday}>
+            Hoje
+          </button>
+
+          <button
+            type="button"
+            onClick={() => changeMonth(1)}
+            aria-label="Próximo mês"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="admin-data-message admin-data-message--error">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="admin-data-message">
+          Carregando agenda...
+        </div>
+      )}
+
+      <div className="admin-calendar-weekdays">
+        {[
+          "DOM",
+          "SEG",
+          "TER",
+          "QUA",
+          "QUI",
+          "SEX",
+          "SÁB",
+        ].map((weekday) => (
+          <b key={weekday}>{weekday}</b>
+        ))}
+      </div>
+
+      <div
+        className={`admin-calendar-month ${
+          loading ? "is-loading" : ""
+        }`}
+      >
+        {calendarCells.map((cell) => {
+          const cellItems = cell.currentMonth
+            ? filteredItems.filter((item) =>
+                sameDay(
+                  new Date(item.startAt),
+                  cell.date,
+                ),
+              )
+            : [];
+
+          const isToday = sameDay(
+            cell.date,
+            new Date(),
+          );
+
+          return (
+            <article
+              className={[
+                "admin-calendar-day",
+                !cell.currentMonth
+                  ? "outside-month"
+                  : "",
+                isToday ? "today" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              key={cell.date.toISOString()}
+            >
+              <header>
+                <span>{cell.day}</span>
+
+                {cellItems.length > 0 && (
+                  <small>
+                    {cellItems.length}
+                  </small>
+                )}
+              </header>
+
+              <div className="admin-calendar-day-items">
+                {cellItems.map((item) => (
+                  <div
+                    className={itemClass(item)}
+                    key={`${item.type}-${item.id}`}
+                    title={`${item.professionalName} — ${
+                      item.type === "block"
+                        ? item.reason ||
+                          "Horário bloqueado"
+                        : item.serviceName
+                    }`}
+                  >
+                    <b>
+                      {itemTime(item.startAt)}
+
+                      {item.outsideSchedule &&
+                        " · encaixe"}
+                    </b>
+
+                    {item.type === "block" ? (
+                      <>
+                        <span>Horário bloqueado</span>
+                        <small>
+                          {item.reason ||
+                            "Sem motivo informado"}
+                        </small>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {item.serviceName}
+                        </span>
+
+                        <small>
+                          {item.clientName}
+                        </small>
+                      </>
+                    )}
+
+                    <em>
+                      {
+                        item.professionalName.split(
+                          " ",
+                        )[0]
+                      }
+                    </em>
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {!loading &&
+        filteredItems.length === 0 && (
+          <div className="admin-calendar-empty">
+            Nenhum compromisso encontrado neste mês.
+          </div>
+        )}
+
+      <div className="admin-calendar-legend">
+        <span>
+          <i className="eliane" />
+          Eliane
+        </span>
+
+        <span>
+          <i className="dayanne" />
+          Dayanne
+        </span>
+
+        <span>
+          <i className="outside" />
+          Encaixe
+        </span>
+
+        <span>
+          <i className="block" />
+          Horário bloqueado
+        </span>
+
+        <span>
+          <i className="cancelled" />
+          Cancelado
+        </span>
       </div>
     </div>
   );

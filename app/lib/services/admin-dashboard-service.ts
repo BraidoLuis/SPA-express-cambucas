@@ -423,3 +423,227 @@ export async function confirmAdminPayment(
     );
   }
 }
+
+export type AdminCalendarItem = {
+  id: string;
+  type: "appointment" | "block";
+  professionalName: string;
+  clientName: string | null;
+  serviceName: string | null;
+  startAt: string;
+  endAt: string;
+  status: string;
+  outsideSchedule: boolean;
+  reason: string | null;
+  paymentStatus: string | null;
+  price: number;
+};
+
+type AdminCalendarAppointmentRow = {
+  id: string;
+  client_name: string | null;
+  start_at: string;
+  end_at: string;
+  status: string;
+  outside_schedule: boolean | null;
+  professionals:
+    | {
+        display_name: string;
+      }
+    | {
+        display_name: string;
+      }[]
+    | null;
+  services:
+    | {
+        name: string;
+      }
+    | {
+        name: string;
+      }[]
+    | null;
+  payments:
+    | {
+        amount: number | string | null;
+        status: string;
+      }
+    | {
+        amount: number | string | null;
+        status: string;
+      }[]
+    | null;
+};
+
+type AdminCalendarBlockRow = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  reason: string | null;
+  professionals:
+    | {
+        display_name: string;
+      }
+    | {
+        display_name: string;
+      }[]
+    | null;
+};
+
+function getMonthBoundaries(monthKey: string) {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+    throw new Error("Mês inválido.");
+  }
+
+  const [year, month] = monthKey
+    .split("-")
+    .map(Number);
+
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    month < 1 ||
+    month > 12
+  ) {
+    throw new Error("Mês inválido.");
+  }
+
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 1);
+
+  return {
+    start: start.toISOString(),
+    end: end.toISOString(),
+  };
+}
+
+export async function getAdminCalendar(
+  monthKey: string,
+): Promise<AdminCalendarItem[]> {
+  const supabase = createClient();
+  const boundaries = getMonthBoundaries(monthKey);
+
+  const [appointmentsResponse, blocksResponse] =
+    await Promise.all([
+      supabase
+        .from("appointments")
+        .select(`
+          id,
+          client_name,
+          start_at,
+          end_at,
+          status,
+          outside_schedule,
+          professionals (
+            display_name
+          ),
+          services (
+            name
+          ),
+          payments (
+            amount,
+            status
+          )
+        `)
+        .gte("start_at", boundaries.start)
+        .lt("start_at", boundaries.end)
+        .order("start_at", { ascending: true }),
+
+      supabase
+        .from("schedule_blocks")
+        .select(`
+          id,
+          starts_at,
+          ends_at,
+          reason,
+          professionals (
+            display_name
+          )
+        `)
+        .lt("starts_at", boundaries.end)
+        .gt("ends_at", boundaries.start)
+        .order("starts_at", { ascending: true }),
+    ]);
+
+  if (appointmentsResponse.error) {
+    throw appointmentsResponse.error;
+  }
+
+  if (blocksResponse.error) {
+    throw blocksResponse.error;
+  }
+
+  const appointmentRows =
+    (appointmentsResponse.data ??
+      []) as unknown as AdminCalendarAppointmentRow[];
+
+  const blockRows =
+    (blocksResponse.data ??
+      []) as unknown as AdminCalendarBlockRow[];
+
+  const appointments: AdminCalendarItem[] =
+    appointmentRows.map((appointment) => {
+      const professional = firstRelation(
+        appointment.professionals,
+      );
+
+      const service = firstRelation(
+        appointment.services,
+      );
+
+      const payment = firstRelation(
+        appointment.payments,
+      );
+
+      return {
+        id: appointment.id,
+        type: "appointment",
+        professionalName:
+          professional?.display_name ||
+          "Profissional não informada",
+        clientName:
+          appointment.client_name ||
+          "Cliente não informado",
+        serviceName:
+          service?.name || "Serviço não informado",
+        startAt: appointment.start_at,
+        endAt: appointment.end_at,
+        status: appointment.status,
+        outsideSchedule:
+          appointment.outside_schedule ?? false,
+        reason: null,
+        paymentStatus: payment?.status || "pending",
+        price: Number(payment?.amount ?? 0),
+      };
+    });
+
+  const blocks: AdminCalendarItem[] = blockRows.map(
+    (block) => {
+      const professional = firstRelation(
+        block.professionals,
+      );
+
+      return {
+        id: block.id,
+        type: "block",
+        professionalName:
+          professional?.display_name ||
+          "Profissional não informada",
+        clientName: null,
+        serviceName: null,
+        startAt: block.starts_at,
+        endAt: block.ends_at,
+        status: "blocked",
+        outsideSchedule: false,
+        reason: block.reason,
+        paymentStatus: null,
+        price: 0,
+      };
+    },
+  );
+
+  return [...appointments, ...blocks].sort(
+    (first, second) =>
+      new Date(first.startAt).getTime() -
+      new Date(second.startAt).getTime(),
+  );
+}
