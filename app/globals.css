@@ -13,6 +13,309 @@
   --green: #3c8c69;
 }
 
+/* Admin service management (Supabase) */
+.admin-services-section {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-service-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.admin-service-filters label,
+.admin-service-form-grid label,
+.admin-service-custom-values label {
+  display: grid;
+  gap: 7px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-service-filters input,
+.admin-service-filters select,
+.admin-service-form-grid input,
+.admin-service-form-grid textarea,
+.admin-service-custom-values input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.admin-managed-services > article {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.admin-managed-services > article.is-inactive {
+  opacity: 0.78;
+}
+
+.admin-service-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-managed-services .service-admin-icon {
+  display: grid;
+  place-items: center;
+}
+
+.admin-managed-services .active-pill {
+  position: static;
+  margin-left: auto;
+}
+
+.admin-managed-services .active-pill.inactive {
+  background: #eee9ec;
+  color: #71666d;
+}
+
+.admin-service-description {
+  min-height: 42px;
+  line-height: 1.55;
+}
+
+.admin-service-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-service-professionals {
+  display: grid;
+  gap: 7px;
+  padding: 14px 0;
+}
+
+.admin-service-professionals > b {
+  font-size: 12px;
+}
+
+.admin-service-professionals > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-service-professionals small {
+  font-size: 12px;
+}
+
+.admin-managed-services footer {
+  margin-top: auto;
+}
+
+.admin-managed-services footer .danger-text {
+  color: #a43c50;
+}
+
+.admin-service-empty {
+  padding: 48px 20px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.admin-service-empty b {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-service-empty p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.admin-data-message--success {
+  border-color: #8fc7a7;
+  background: #edf8f1;
+  color: #24653e;
+}
+
+.admin-data-message button {
+  margin-left: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.admin-service-modal {
+  width: min(760px, calc(100vw - 28px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+}
+
+.admin-service-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.admin-service-form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.admin-service-form-grid textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.admin-service-links {
+  display: grid;
+  gap: 10px;
+  margin: 20px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-service-links legend {
+  margin-bottom: 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-service-link {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--soft);
+}
+
+.admin-service-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-service-check.custom {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.admin-service-check input {
+  width: 17px;
+  height: 17px;
+}
+
+.admin-service-custom-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-service-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.admin-service-form-actions button {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dark-theme .admin-service-filters,
+.dark-theme .admin-service-filters input,
+.dark-theme .admin-service-filters select,
+.dark-theme .admin-service-form-grid input,
+.dark-theme .admin-service-form-grid textarea,
+.dark-theme .admin-service-custom-values input,
+.dark-theme .admin-service-form-actions button {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-2);
+  color: var(--dark-text);
+}
+
+.dark-theme .admin-service-link {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-3);
+}
+
+.dark-theme .admin-managed-services .active-pill.inactive {
+  background: #393438;
+  color: #d5cbd1;
+}
+
+.dark-theme .admin-data-message--success {
+  border-color: #37694a;
+  background: #213b2c;
+  color: #a9e3be;
+}
+
+@media (max-width: 1000px) {
+  .admin-service-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-service-filters,
+  .admin-service-form-grid,
+  .admin-service-custom-values {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-service-form-grid .wide {
+    grid-column: auto;
+  }
+
+  .admin-service-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .admin-service-form-actions button {
+    width: 100%;
+  }
+
+  .admin-service-professionals > span {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 * {
   box-sizing: border-box;
 }

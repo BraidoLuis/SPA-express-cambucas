@@ -13,6 +13,7 @@ import {
   type AdminOverview,
   type AdminPaymentMethod,
 } from "../../lib/services/admin-dashboard-service";
+import { AdminServicesSection } from "./admin-services-section";
 
 function AdminContent({
   section,
@@ -167,6 +168,8 @@ function AdminContent({
       active = false;
     };
   }, [section, adminCalendarMonthKey]);
+
+  if (section.startsWith("Servi")) return <AdminServicesSection />;
 
   if (section === "Visão geral")
     return (
