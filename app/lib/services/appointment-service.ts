@@ -17,6 +17,7 @@ export type ClientAppointment = {
   category: string;
   duration: number;
   professionalName: string;
+  professionalId: string;
   price: number;
   paymentStatus:
   | "pending"
@@ -32,7 +33,7 @@ type AppointmentRow = {
   status: ClientAppointment["status"];
   notes: string | null;
   services: { name: string; category: string; duration_minutes: number };
-  professionals: { display_name: string };
+  professionals: { id: string; display_name: string };
   payments:
   | {
       amount: number;
@@ -68,7 +69,7 @@ export async function getClientAppointments(): Promise<ClientAppointment[]> {
       status,
       notes,
       services!inner(name,category,duration_minutes),
-      professionals!inner(display_name),
+      professionals!inner(id,display_name),
       payments(amount,status)
     `)
     .order("start_at", { ascending: false });
@@ -90,6 +91,7 @@ export async function getClientAppointments(): Promise<ClientAppointment[]> {
         category: row.services.category,
         duration: row.services.duration_minutes,
         professionalName: row.professionals.display_name,
+        professionalId: row.professionals.id,
         price: Number(payment?.amount || 0),
         paymentStatus: payment?.status || "pending",
     };

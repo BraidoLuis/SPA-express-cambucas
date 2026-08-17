@@ -1,7 +1,12 @@
 "use client";
-import { useRef, useState } from "react";
-import { filterServices, serviceFilters } from "../../lib/spa-data";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { services as fallbackServices, type Service } from "../../lib/spa-data";
+import { getClientCatalog } from "../../lib/services/catalog-service";
 import { Icon, Logo, ThemeToggle } from "../shared/spa-ui";
+import { ServiceCoverImage } from "../shared/service-cover-image";
+import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Menu } from "lucide-react";
+import { ShowcaseCarousel } from "../shared/showcase-carousel";
+import { ProfessionalFilter } from "../shared/professional-filter";
 export function PublicSite({
   openBooking,
   goAdmin,
@@ -11,8 +16,32 @@ export function PublicSite({
 }) {
   const [menu, setMenu] = useState(false);
   const [homeFilter, setHomeFilter] = useState("Todos");
+  const [homeProfessional, setHomeProfessional] = useState("all");
   const [aboutSlide, setAboutSlide] = useState(0);
   const homeCarousel = useRef<HTMLDivElement>(null);
+  const [catalog, setCatalog] = useState<Service[]>(fallbackServices);
+  useEffect(() => {
+    let active = true;
+    getClientCatalog().then((items) => { if (active && items.length) setCatalog(items); }).catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    const sections = document.querySelectorAll<HTMLElement>(".public-site main > section, .public-site > .location-section");
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      sections.forEach((section) => section.classList.add("is-visible"));
+      return;
+    }
+    sections.forEach((section) => section.classList.add("motion-reveal"));
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => { if (entry.isIntersecting) { entry.target.classList.add("is-visible"); observer.unobserve(entry.target); } });
+    }, { threshold: 0.12, rootMargin: "0px 0px -5%" });
+    sections.forEach((section) => observer.observe(section));
+    return () => observer.disconnect();
+  }, []);
+  const serviceFilters = useMemo(() => ["Todos", ...new Set(catalog.map((item) => item.category))], [catalog]);
+  const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((item) => item.professionalId).map((item) => [item.professionalId!, { id: item.professionalId!, name: item.professionalFullName || item.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
+  const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional));
+  function resetHomeCarousel() { homeCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
   const slideHome = (direction: number) =>
     homeCarousel.current?.scrollBy({
       left: direction * homeCarousel.current.clientWidth * 0.82,
@@ -45,7 +74,7 @@ export function PublicSite({
           onClick={() => setMenu(!menu)}
           aria-label="Abrir menu"
         >
-          ☰
+          <Menu aria-hidden="true" />
         </button>
       </header>
 
@@ -176,9 +205,9 @@ export function PublicSite({
             </div>
           ))}
           <div className="about-controls" aria-label="Navegação sobre a equipe">
-            <button onClick={() => setAboutSlide((aboutSlide + 2) % 3)} aria-label="Anterior">←</button>
+            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 2) % 3)} aria-label="Anterior" title="Anterior"><ChevronLeft aria-hidden="true" /></button>
             <div>{[0,1,2].map((i) => <button key={i} className={aboutSlide === i ? "active" : ""} onClick={() => setAboutSlide(i)} aria-label={`Ir para item ${i + 1}`} />)}</div>
-            <button onClick={() => setAboutSlide((aboutSlide + 1) % 3)} aria-label="Próximo">→</button>
+            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 1) % 3)} aria-label="Próximo" title="Próximo"><ChevronRight aria-hidden="true" /></button>
           </div>
         </section>
 
@@ -199,63 +228,62 @@ export function PublicSite({
             </p>
           </div>
           <div className="services-tools">
-            <div className="service-filter-buttons">
+            <div className="service-filter-group"><div className="service-filter-buttons">
               {serviceFilters.map((f) => (
                 <button
                   className={homeFilter === f ? "active" : ""}
                   onClick={() => {
                     setHomeFilter(f);
-                    homeCarousel.current?.scrollTo({
-                      left: 0,
-                      behavior: "smooth",
-                    });
+                    resetHomeCarousel();
                   }}
                   key={f}
                 >
                   {f}
                 </button>
               ))}
-            </div>
+            </div><ProfessionalFilter options={professionalOptions} value={homeProfessional} onChange={(value) => { setHomeProfessional(value); resetHomeCarousel(); }} /></div>
             <div className="carousel-arrows">
               <button
                 onClick={() => slideHome(-1)}
                 aria-label="Serviços anteriores"
               >
-                ←
+                <ChevronLeft aria-hidden="true" />
               </button>
               <button
                 onClick={() => slideHome(1)}
                 aria-label="Próximos serviços"
               >
-                →
+                <ChevronRight aria-hidden="true" />
               </button>
             </div>
           </div>
+          {visibleServices.length === 0 && <div className="catalog-feedback empty"><p>Nenhum serviço encontrado para esta combinação.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); resetHomeCarousel(); }}>Limpar filtros</button></div>}
           <div className="service-grid mobile-carousel" ref={homeCarousel}>
-            {filterServices(homeFilter).map((s) => (
-              <article className="service-card" key={s.name}>
+            {visibleServices.map((s, index) => (
+              <article className="service-card motion-card" style={{ "--stagger-index": index } as React.CSSProperties} key={`${s.id || s.name}-${s.professionalId || "fallback"}`}>
                 <div className="service-image">
-                  <img src={s.image} alt="" />
+                  <ServiceCoverImage src={s.image} alt={s.name} />
                   <span>{s.category}</span>
                 </div>
                 <div className="service-body">
                   <h3>{s.name}</h3>
                   <p>
-                    Um protocolo completo para cuidar de você com conforto e
-                    resultados.
+                    {s.description || "Um protocolo completo para cuidar de você com conforto e resultados."}
                   </p>
                   <div>
                     <span>◷ {s.duration} min</span>
                     <b>R$ {s.price}</b>
                   </div>
                   <button onClick={() => openBooking(s.name)}>
-                    Agendar este serviço <span>→</span>
+                    Agendar este serviço <ArrowRight aria-hidden="true" />
                   </button>
                 </div>
               </article>
             ))}
           </div>
         </section>
+
+        <ShowcaseCarousel />
 
         <section className="cta">
           <span className="eyebrow">SEU MOMENTO É AGORA</span>
@@ -300,7 +328,7 @@ export function PublicSite({
             à Prefeitura de Guapimirim.
           </p>
           <div className="location-address">
-            <span>⌖</span>
+            <MapPin aria-hidden="true" />
             <div>
               <b>Estação Cambucás</b>
               <p>Avenida Dedo de Deus, 1200 · Centro, Guapimirim — RJ</p>

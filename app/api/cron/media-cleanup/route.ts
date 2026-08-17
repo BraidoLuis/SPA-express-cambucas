@@ -5,7 +5,9 @@ export async function GET(request: Request) {
   const supabase = createAdminClient();
   const { data: expired, error } = await supabase.from("service_media").select("id,storage_path").lt("expires_at", new Date().toISOString());
   if (error) return Response.json({ error }, { status: 500 });
-  const paths = (expired ?? []).map((item) => item.storage_path).filter(Boolean);
+  const paths = (expired ?? [])
+    .map((item) => item.storage_path)
+    .filter((path): path is string => Boolean(path?.startsWith("showcase/") && !path.includes("..")));
   if (paths.length) await supabase.storage.from("service-media").remove(paths);
   if (expired?.length) await supabase.from("service_media").delete().in("id", expired.map((item) => item.id));
   return Response.json({ removed: expired?.length ?? 0 });

@@ -4,6 +4,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { Check, TriangleAlert, X } from "lucide-react";
 
 type ActionDialogProps = {
   open: boolean;
@@ -87,7 +88,7 @@ export function ActionDialog({
           disabled={loading}
           onClick={onCancel}
         >
-          ×
+          <X aria-hidden="true" />
         </button>
 
         <span
@@ -95,7 +96,7 @@ export function ActionDialog({
             danger ? "danger" : ""
           }`}
         >
-          {danger ? "!" : "✓"}
+          {danger ? <TriangleAlert aria-hidden="true" /> : <Check aria-hidden="true" />}
         </span>
 
         <h2 id="action-dialog-title">{title}</h2>

@@ -11,18 +11,17 @@ import {
   getProfessionalAccess,
   type ProfessionalAccess,
 } from "./lib/services/professional-access-service";
-import { initialServiceMedia, type ServiceMedia } from "./lib/spa-data";
 import { createClient } from "../lib/supabase/client";
 
 type View = "public" | "login-admin" | "login-client" | "admin" | "staff" | "client";
+type InitializationStatus = "initializing" | "unauthenticated" | "authenticated";
 
 export default function Home() {
   const [view, setView] = useState<View>("public");
   const [profile, setProfile] = useState<AuthProfile | null>(null);
   const [professionalAccess, setProfessionalAccess] =
   useState<ProfessionalAccess | null>(null);
-  const [mediaItems, setMediaItems] = useState<ServiceMedia[]>(initialServiceMedia);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [initializationStatus, setInitializationStatus] = useState<InitializationStatus>("initializing");
 
   function navigate(next: View) {
     setView(next);
@@ -71,19 +70,64 @@ export default function Home() {
     const access = new URLSearchParams(window.location.search).get("access");
     const fallback: View = access === "admin" ? "login-admin" : access === "client" ? "login-client" : "public";
     const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session && access) {
-        try { const found = await getProfile(data.session.user.id); if (!(await routeProfile(found, access))) setView(fallback); }
-        catch { setView(fallback); }
-      } else setView(fallback);
-      setCheckingSession(false);
-    });
+    let cancelled = false;
+
+    async function initialize() {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!data.session || !access) {
+          if (!cancelled) {
+            setView(fallback);
+            setInitializationStatus("unauthenticated");
+          }
+          return;
+        }
+
+        const found = await getProfile(data.session.user.id);
+        if (!found.active) throw new Error("Perfil inativo.");
+
+        let nextView: View;
+        let linkedProfessional: ProfessionalAccess | null = null;
+        if (found.role === "client") {
+          if (access !== "client") throw new Error("Portal incompatível.");
+          nextView = "client";
+        } else if (found.role === "admin") {
+          if (access !== "admin") throw new Error("Portal incompatível.");
+          nextView = "admin";
+        } else {
+          if (access !== "admin") throw new Error("Portal incompatível.");
+          linkedProfessional = await getProfessionalAccess(found.id);
+          if (!linkedProfessional) throw new Error("Perfil profissional sem vínculo ativo.");
+          nextView = "staff";
+        }
+
+        if (!cancelled) {
+          setProfile(found);
+          setProfessionalAccess(linkedProfessional);
+          setView(nextView);
+          setInitializationStatus("authenticated");
+        }
+      } catch {
+        if (!cancelled) {
+          setProfile(null);
+          setProfessionalAccess(null);
+          setView(fallback);
+          setInitializationStatus("unauthenticated");
+        }
+      }
+    }
+
+    void initialize();
     const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") setProfile(null);
+      if (event === "SIGNED_OUT" && !cancelled) {
+        setProfile(null);
+        setProfessionalAccess(null);
+        setInitializationStatus("unauthenticated");
+      }
     });
-    return () => listener.subscription.unsubscribe();
+    return () => { cancelled = true; listener.subscription.unsubscribe(); };
   // Executa apenas na inicialização; a navegação interna é controlada por estado.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleLogin(email: string, password: string) {
@@ -112,6 +156,15 @@ export default function Home() {
     navigate(destination);
   }
 
-  if (checkingSession) return <div className="auth-loading"><span>✦</span><p>Preparando seu espaço...</p></div>;
-  return <>{view === "admin" ? <AdminDashboard profile={profile} goPublic={() => navigate("public")} logout={() => logout("login-admin")} mediaItems={mediaItems} setMediaItems={setMediaItems} /> : view === "staff" && professionalAccess ? <ProfessionalDashboard access={professionalAccess} goPublic={() => navigate("public")} logout={() => logout("login-admin")} /> : view === "client" ? <ClientDashboard profile={profile} logout={() => logout("login-client")} mediaItems={mediaItems} /> : view === "login-admin" ? <LoginScreen role="admin" close={() => navigate("public")} onLogin={handleLogin} /> : view === "login-client" ? <LoginScreen role="client" close={() => navigate("public")} onLogin={handleLogin} /> : <PublicSite goAdmin={() => navigate("login-client")} openBooking={() => navigate("login-client")} />}</>;
+  if (initializationStatus === "initializing") {
+    return (
+      <div className="auth-loading" role="status" aria-live="polite">
+        <div className="auth-loading-content">
+          <span className="auth-loading-symbol" aria-hidden="true">✦</span>
+          <p>Preparando seu espaço...</p>
+        </div>
+      </div>
+    );
+  }
+  return <div className="page-transition" key={view}>{view === "admin" ? <AdminDashboard profile={profile} goPublic={() => navigate("public")} logout={() => logout("login-admin")} /> : view === "staff" && professionalAccess ? <ProfessionalDashboard access={professionalAccess} goPublic={() => navigate("public")} logout={() => logout("login-admin")} /> : view === "client" ? <ClientDashboard profile={profile} logout={() => logout("login-client")} /> : view === "login-admin" ? <LoginScreen role="admin" close={() => navigate("public")} onLogin={handleLogin} /> : view === "login-client" ? <LoginScreen role="client" close={() => navigate("public")} onLogin={handleLogin} /> : <PublicSite goAdmin={() => navigate("login-client")} openBooking={() => navigate("login-client")} />}</div>;
 }

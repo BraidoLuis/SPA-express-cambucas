@@ -22,6 +22,7 @@ export type AdminManagedService = {
   duration: number;
   price: number;
   active: boolean;
+  imageUrl: string | null;
   links: AdminServiceLink[];
 };
 
@@ -50,6 +51,7 @@ type ServiceRow = {
   duration_minutes: number;
   price: number | string;
   active: boolean;
+  image_url: string | null;
   professional_services: Array<{
     professional_id: string;
     active: boolean;
@@ -96,7 +98,7 @@ export async function getAdminServiceManagementData(): Promise<{
     supabase
       .from("services")
       .select(`
-        id,name,category,description,duration_minutes,price,active,
+        id,name,category,description,duration_minutes,price,active,image_url,
         professional_services(
           professional_id,active,custom_duration_minutes,custom_price,
           professionals(display_name)
@@ -124,6 +126,7 @@ export async function getAdminServiceManagementData(): Promise<{
     duration: row.duration_minutes,
     price: Number(row.price),
     active: row.active,
+    imageUrl: row.image_url,
     links: (row.professional_services || []).map((link) => ({
       professionalId: link.professional_id,
       professionalName: relationName(link.professionals),

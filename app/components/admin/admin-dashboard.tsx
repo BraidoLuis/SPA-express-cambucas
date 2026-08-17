@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { bookings, services, type Booking, type ServiceMedia } from "../../lib/spa-data";
+import { bookings, services, type Booking } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
 import {
@@ -14,14 +14,15 @@ import {
   type AdminPaymentMethod,
 } from "../../lib/services/admin-dashboard-service";
 import { AdminServicesSection } from "./admin-services-section";
+import { ArrowLeft, CalendarDays, ChartNoAxesCombined, Contact, Home, Image, LogOut, Menu, Settings, Sparkles, UserRound, Users, X } from "lucide-react";
+import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
+import { AdminShowcaseSection } from "./admin-showcase-section";
 
 function AdminContent({
   section,
   filter,
   setFilter,
   setAddOpen,
-  mediaItems,
-  setMediaItems,
   overview,
   overviewLoading,
   overviewError,
@@ -34,8 +35,6 @@ function AdminContent({
   filter: string;
   setFilter: (v: string) => void;
   setAddOpen: (v: boolean) => void;
-  mediaItems: ServiceMedia[];
-  setMediaItems: React.Dispatch<React.SetStateAction<ServiceMedia[]>>;
   overview: AdminOverview | null;
   overviewLoading: boolean;
   overviewError: string;
@@ -450,65 +449,7 @@ function AdminContent({
         </div>
       </div>
     );
-  if (section === "Conteúdo")
-    return (
-      <div className="content-manager">
-        <ScreenTop
-          title="Vitrine de serviços"
-          text="Publique imagens ou vídeos para inspirar as clientes. Cada mídia expira automaticamente após 14 dias."
-        />
-        <section className="content-upload-card">
-          <div>
-            <span>✦</span>
-            <h3>Adicionar à vitrine</h3>
-            <p>Imagens JPG, PNG ou WEBP e vídeos MP4 de até 20 MB.</p>
-          </div>
-          <label className="upload-button">
-            ＋ Escolher imagem ou vídeo
-            <input
-              type="file"
-              accept="image/*,video/mp4"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  const now = new Date();
-                  setMediaItems((current) => [{
-                    id: `media-${Date.now()}`,
-                    title: file.name.replace(/\.[^.]+$/, ""),
-                    service: "Novo serviço",
-                    professional: "Eliane",
-                    type: file.type.startsWith("video") ? "video" : "image",
-                    url: String(reader.result),
-                    createdAt: now.toISOString(),
-                    expiresAt: new Date(now.getTime() + 14 * 86400000).toISOString(),
-                  }, ...current]);
-                };
-                reader.readAsDataURL(file);
-                event.currentTarget.value = "";
-              }}
-            />
-          </label>
-        </section>
-        <div className="admin-media-grid">
-          {mediaItems.map((item) => (
-            <article key={item.id}>
-              <div className="admin-media-preview">
-                {item.type === "video" ? <video src={item.url} controls /> : <img src={item.url} alt={item.title} />}
-                <span>{item.type === "video" ? "Vídeo" : "Imagem"}</span>
-              </div>
-              <div className="admin-media-info">
-                <h3>{item.title}</h3>
-                <p>{item.service} · {item.professional}</p>
-                <small>Expira em 14 dias · limpeza automática programada</small>
-                <button onClick={() => setMediaItems((items) => items.filter((x) => x.id !== item.id))}>Excluir agora</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
-    );
+  if (section === "Conteúdo") return <AdminShowcaseSection />;
   if (section === "Profissionais")
     return (
       <div>
@@ -1392,12 +1333,13 @@ function AdminTodayTable({
           >
             <button
               type="button"
-              className="modal-close"
+              className="modal-close icon-button"
               onClick={closePayment}
               disabled={paymentSaving}
               aria-label="Fechar"
+              title="Fechar"
             >
-              ×
+              <X aria-hidden="true" />
             </button>
 
             <span className="eyebrow">PAGAMENTO NO LOCAL</span>
@@ -1658,16 +1600,13 @@ function QuickActions({ action }: { action: () => void }) {
 export function AdminDashboard({
   goPublic,
   logout,
-  mediaItems,
-  setMediaItems,
   profile,
 }: {
   goPublic: () => void;
   logout: () => void;
-  mediaItems: ServiceMedia[];
-  setMediaItems: React.Dispatch<React.SetStateAction<ServiceMedia[]>>;
   profile: AuthProfile | null;
 }) {
+  const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
@@ -1700,6 +1639,7 @@ export function AdminDashboard({
     "Relatórios",
     "Configurações",
   ];
+  const menuIcons = [Home, CalendarDays, CalendarDays, Sparkles, Image, Users, Contact, ChartNoAxesCombined, Settings];
 
   async function loadOverview() {
     setOverviewLoading(true);
@@ -1753,16 +1693,20 @@ export function AdminDashboard({
 
   return (
     <div className="admin-shell">
-      <aside>
+      {drawerOpen && <button className="dashboard-drawer-backdrop" type="button" aria-label="Fechar menu" onClick={() => closeDrawer()} />}
+      <aside id="admin-navigation" ref={drawerRef} tabIndex={-1} className={drawerOpen ? "dashboard-drawer-open" : ""}>
         <Logo compact />
+        <button className="dashboard-drawer-close icon-button" type="button" aria-label="Fechar menu" title="Fechar menu" onClick={() => closeDrawer()}><X aria-hidden="true" /></button>
         <nav>
-          {menu.map((m, i) => (
+          {menu.map((m, i) => {
+            const MenuIcon = menuIcons[i] || UserRound;
+            return (
             <button
               className={section === m ? "active" : ""}
-              onClick={() => setSection(m)}
+              onClick={() => { setSection(m); closeDrawer(false); }}
               key={m}
             >
-              <span>{["⌂", "▦", "◷", "✦", "▣", "♙", "♧", "↗", "⚙"][i]}</span>
+              <span><MenuIcon aria-hidden="true" /></span>
               {m}
               {m === "Agendamentos" &&
                 adminAppointments.filter((appointment) =>
@@ -1781,18 +1725,18 @@ export function AdminDashboard({
                   </i>
                 )}
             </button>
-          ))}
+          );})}
         </nav>
         <div className="support">
           <span>?</span>
           <b>Precisa de ajuda?</b>
           <small>Fale com o suporte</small>
         </div>
-        <button className="view-site" onClick={goPublic}>
-          ← Ver site público
+        <button className="view-site button-with-icon" onClick={goPublic}>
+          <ArrowLeft aria-hidden="true" /> Ver site público
         </button>
-        <button className="view-site logout" onClick={logout}>
-          ↪ Sair da conta
+        <button className="view-site logout button-with-icon" onClick={logout}>
+          <LogOut aria-hidden="true" /> Sair da conta
         </button>
       </aside>
       <main className="admin-main">
@@ -1813,6 +1757,7 @@ export function AdminDashboard({
               </div>
               ⌄
             </div>
+            <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="admin-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>
         </header>
         <AdminContent
@@ -1820,8 +1765,6 @@ export function AdminDashboard({
           filter={filter}
           setFilter={setFilter}
           setAddOpen={setAddOpen}
-          mediaItems={mediaItems}
-          setMediaItems={setMediaItems}
           overview={overview}
           overviewLoading={overviewLoading}
           overviewError={overviewError}
@@ -1833,8 +1776,8 @@ export function AdminDashboard({
         {addOpen && (
           <div className="modal-backdrop">
             <div className="simple-modal">
-              <button className="modal-close" onClick={() => setAddOpen(false)}>
-                ×
+              <button className="modal-close icon-button" onClick={() => setAddOpen(false)} aria-label="Fechar" title="Fechar">
+                <X aria-hidden="true" />
               </button>
               <span className="eyebrow">NOVO CADASTRO</span>
               <h2>Adicionar à agenda</h2>

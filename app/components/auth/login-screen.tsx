@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import { SignUpForm } from "./sign-up-form";
 import { requestPasswordReset, updatePassword } from "../../lib/services/auth-service";
+import { ArrowLeft, Heart, Settings } from "lucide-react";
 
 type LoginResult = { error?: string };
 
@@ -57,14 +58,14 @@ export function LoginScreen({ role, close, onLogin }: {
     {!admin && creating && <SignUpForm onBack={() => setCreating(false)} onSuccess={() => { setCreating(false); setMessage("Conta criada! Confirme seu e-mail antes de entrar."); }} />}
     <div className="login-brand">
       <img className="login-photo" src={admin ? "/team-access.png" : "/client-access.png"} alt={admin ? "Equipe do SPA Express Cambucás" : "Profissional do SPA Express Cambucás"} />
-      <div className="login-overlay" /><button onClick={close}>← Voltar ao site</button><Logo />
+      <div className="login-overlay" /><button className="button-with-icon" onClick={close}><ArrowLeft aria-hidden="true" /> Voltar ao site</button><Logo />
       <div className="login-message"><span className="eyebrow">{admin ? "GESTÃO SPA EXPRESS" : "SEU MOMENTO DE CUIDADO"}</span><h1>{admin ? <>Cada profissional,<br /><em>seu próprio espaço.</em></> : <>Seu bem-estar<br /><em>começa aqui.</em></>}</h1><p>{admin ? "A administradora acompanha toda a operação, enquanto cada profissional acessa somente sua agenda e seus serviços." : "Entre para acompanhar seus horários e reservar seu próximo momento."}</p></div>
       <div className="login-quote"><span>✦</span><p>{admin ? "Organização para cuidar ainda melhor." : "Você merece um tempo só seu."}</p></div>
     </div>
-    <div className="login-side"><div className="mobile-login-hero"><img src={admin ? "/team-access.png" : "/client-access.png"} alt="" /><div className="mobile-login-shade" /><button onClick={close} aria-label="Voltar ao site">←</button><Logo compact /><div><span>✦</span><p>{admin ? "Seu espaço de trabalho, do seu jeito." : "Você merece um momento só seu."}</p></div></div>
+    <div className="login-side"><div className="mobile-login-hero"><img src={admin ? "/team-access.png" : "/client-access.png"} alt="" /><div className="mobile-login-shade" /><button className="icon-button" onClick={close} aria-label="Voltar ao site" title="Voltar ao site"><ArrowLeft aria-hidden="true" /></button><Logo compact /><div><span>✦</span><p>{admin ? "Seu espaço de trabalho, do seu jeito." : "Você merece um momento só seu."}</p></div></div>
       <form className="login-box" onSubmit={recovering ? savePassword : submit}>
       <div className="logo-box">
-        <div className="access-badge">{admin ? "⚙ ACESSO DA EQUIPE" : "♡ ÁREA DA CLIENTE"}</div>
+        <div className="access-badge">{admin ? <><Settings aria-hidden="true" /> ACESSO DA EQUIPE</> : <><Heart aria-hidden="true" /> ÁREA DA CLIENTE</>}</div>
         <span className="eyebrow">SPA EXPRESS CAMBUCÁS</span>
       </div>
         <h2>{recovering ? "Crie uma nova senha" : admin ? "Acesse seu espaço" : "Entre na sua conta"}</h2>

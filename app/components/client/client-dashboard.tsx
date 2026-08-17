@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { pad, type Service, type ServiceMedia } from "../../lib/spa-data";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { pad, type Service } from "../../lib/spa-data";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
 import { getClientCatalog } from "../../lib/services/catalog-service";
@@ -8,6 +8,11 @@ import { getAvailableSlots, type AvailableSlot } from "../../lib/services/availa
 import { cancelClientAppointment, createClientAppointment, getClientAppointments, type ClientAppointment } from "../../lib/services/appointment-service";
 import { ClientProfileForm } from "./client-profile-form";
 import { ActionDialog } from "../shared/action-dialog";
+import { ServiceCoverImage } from "../shared/service-cover-image";
+import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Home, LogOut, Menu, Plus, UserRound, X } from "lucide-react";
+import { ShowcaseCarousel } from "../shared/showcase-carousel";
+import { ProfessionalFilter } from "../shared/professional-filter";
+import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
 
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
@@ -40,6 +45,7 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
   const [bookingError, setBookingError] = useState("");
   const [catalogFilter, setCatalogFilter] = useState("Todos");
+  const [professionalFilter, setProfessionalFilter] = useState("all");
   const [catalog, setCatalog] = useState<Service[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
@@ -49,22 +55,27 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
   const [availabilityReload, setAvailabilityReload] = useState(0);
   const clientCarousel = useRef<HTMLDivElement>(null);
   const filters = ["Todos", ...Array.from(new Set(catalog.map((service) => service.category)))];
-  const visibleServices = catalogFilter === "Todos" ? catalog : catalog.filter((service) => service.category === catalogFilter);
+  const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((service) => service.professionalId).map((service) => [service.professionalId!, { id: service.professionalId!, name: service.professionalFullName || service.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
+  const visibleServices = catalog.filter((service) => (catalogFilter === "Todos" || service.category === catalogFilter) && (professionalFilter === "all" || service.professionalId === professionalFilter));
+  function resetClientCarousel() { clientCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
   async function loadCatalog() {
     setCatalogLoading(true); setCatalogError("");
     try { setCatalog(await getClientCatalog()); }
     catch { setCatalogError("Não foi possível carregar os serviços agora."); }
     finally { setCatalogLoading(false); }
   }
-  useEffect(() => { void loadCatalog(); }, []);
+  useEffect(() => { queueMicrotask(() => void loadCatalog()); }, []);
   useEffect(() => {
     if (!selected?.id || !selected.professionalId) return;
     let cancelled = false;
-    setSlotsLoading(true); setSlotsError(""); setAvailableSlots([]); setTime(""); setSelectedSlot(null); setBookingError("");
-    getAvailableSlots(selected.professionalId, selected.id, selectedDate)
-      .then((slots) => { if (!cancelled) setAvailableSlots(slots); })
-      .catch(() => { if (!cancelled) setSlotsError("Não foi possível consultar a agenda agora."); })
-      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setSlotsLoading(true); setSlotsError(""); setAvailableSlots([]); setTime(""); setSelectedSlot(null); setBookingError("");
+      getAvailableSlots(selected.professionalId!, selected.id!, selectedDate)
+        .then((slots) => { if (!cancelled) setAvailableSlots(slots); })
+        .catch(() => { if (!cancelled) setSlotsError("Não foi possível consultar a agenda agora."); })
+        .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    });
     return () => { cancelled = true; };
   }, [selected, selectedDate, availabilityReload]);
   async function confirmAppointment() {
@@ -101,7 +112,7 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
   if (confirmed && selected)
     return (
       <section className="schedule-success">
-        <div>✓</div>
+        <div><Check aria-hidden="true" /></div>
         <span className="eyebrow">AGENDAMENTO CONFIRMADO</span>
         <h2>Seu momento está reservado!</h2>
         <p>
@@ -146,11 +157,11 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
             setBookingError("");
           }}
         >
-          ← Voltar para serviços
+          <ArrowLeft aria-hidden="true" /> Voltar para serviços
         </button>
         <div className="schedule-layout">
           <section className="selected-service">
-            <img src={selected.image || (selected.professional === "Dayanne" ? "/nails-detail.png" : "/eliane-care.png")} alt={selected.name} />
+            <ServiceCoverImage src={selected.image} alt={selected.name} />
             <span className="eyebrow">{selected.category}</span>
             <h2>{selected.name}</h2>
             <p>{selected.description}</p>
@@ -167,7 +178,7 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
               <div>
                 <small>PROFISSIONAL RESPONSÁVEL</small>
                 <b>{selected.professionalFullName || selected.professional}</b>
-                <em>{selected.specialty || (selected.professional === "Eliane" ? "Massagista & Esteticista" : "Manicure & Nail designer")}</em>
+                <em>{selected.specialty || "Profissional do SPA"}</em>
               </div>
             </div>
           </section>
@@ -255,43 +266,41 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
         </p>
       </div>
       <div className="services-tools client-tools">
-        <div className="catalog-filters">
+        <div className="catalog-filter-group"><div className="catalog-filters">
           {filters.map((f) => (
             <button
               className={catalogFilter === f ? "active" : ""}
               onClick={() => {
                 setCatalogFilter(f);
-                clientCarousel.current?.scrollTo({
-                  left: 0,
-                  behavior: "smooth",
-                });
+                resetClientCarousel();
               }}
               key={f}
             >
               {f}
             </button>
           ))}
-        </div>
+        </div><ProfessionalFilter options={professionalOptions} value={professionalFilter} onChange={(value) => { setProfessionalFilter(value); resetClientCarousel(); }} /></div>
         <div className="carousel-arrows">
           <button
             onClick={() => slideClient(-1)}
             aria-label="Serviços anteriores"
           >
-            ←
+            <ChevronLeft aria-hidden="true" />
           </button>
           <button onClick={() => slideClient(1)} aria-label="Próximos serviços">
-            →
+            <ChevronRight aria-hidden="true" />
           </button>
         </div>
       </div>
       {catalogLoading && <div className="catalog-feedback"><span>✦</span><p>Carregando os serviços...</p></div>}
       {catalogError && <div className="catalog-feedback error"><p>{catalogError}</p><button onClick={loadCatalog}>Tentar novamente</button></div>}
       {!catalogLoading && !catalogError && catalog.length === 0 && <div className="catalog-feedback"><p>Nenhum serviço disponível no momento.</p></div>}
+      {!catalogLoading && !catalogError && catalog.length > 0 && visibleServices.length === 0 && <div className="catalog-feedback empty"><p>Nenhum serviço encontrado para esta combinação.</p><button type="button" onClick={() => { setCatalogFilter("Todos"); setProfessionalFilter("all"); resetClientCarousel(); }}>Limpar filtros</button></div>}
       <div className="client-service-grid mobile-carousel" ref={clientCarousel}>
         {visibleServices.map((s) => (
           <article key={`${s.id}-${s.professionalId}`}>
             <div className="client-service-image">
-              <img src={s.image || (s.professional === "Dayanne" ? "/nails-detail.png" : "/eliane-care.png")} alt={s.name} />
+              <ServiceCoverImage src={s.image} alt={s.name} />
               <span>{s.category}</span>
             </div>
             <div className="client-service-body">
@@ -319,29 +328,6 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
   );
 }
 
-function ClientMediaCarousel({ items, onSchedule }: { items: ServiceMedia[]; onSchedule: () => void }) {
-  const carousel = useRef<HTMLDivElement>(null);
-  return (
-    <section className="client-media-showcase">
-      <div className="client-media-heading">
-        <div><span className="eyebrow">INSPIRAÇÕES DO SPA</span><h2>Veja nossos cuidados de perto</h2><p>Novidades publicadas pelas profissionais para você escolher seu próximo momento.</p></div>
-        <div className="carousel-arrows"><button aria-label="Ver serviço anterior" onClick={() => glideCarousel(carousel.current, -378)}>←</button><button aria-label="Ver próximo serviço" onClick={() => glideCarousel(carousel.current, 378)}>→</button></div>
-      </div>
-      <div className="client-media-carousel" ref={carousel}>
-        {items.map((item) => (
-          <article key={item.id}>
-            <div className="client-media-asset">
-              {item.type === "video" ? <video src={item.url} controls playsInline /> : <img src={item.url} alt={item.title} />}
-              <span>{item.professional}</span>
-            </div>
-            <div><small>{item.service}</small><h3>{item.title}</h3><button onClick={onSchedule}>Ver horários disponíveis →</button></div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 const appointmentStatusLabel: Record<ClientAppointment["status"], string> = {
   pending: "Pendente",
   confirmed: "Confirmado",
@@ -362,12 +348,22 @@ function appointmentLongDate(isoDate: string) {
   return new Date(isoDate).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 }
 
-export function ClientDashboard({ logout, mediaItems, profile }: { logout: () => void; mediaItems: ServiceMedia[]; profile: AuthProfile | null }) {
+const clientTabs = [
+  { label: "Início", icon: Home },
+  { label: "Serviços", icon: Plus },
+  { label: "Meus agendamentos", icon: CalendarDays },
+  { label: "Histórico", icon: Clock3 },
+  { label: "Meu perfil", icon: UserRound },
+];
+
+export function ClientDashboard({ logout, profile }: { logout: () => void; profile: AuthProfile | null }) {
   const [tab, setTab] = useState("Serviços");
   const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState("");
   const [cancellingId, setCancellingId] = useState("");
+  const [appointmentProfessional, setAppointmentProfessional] = useState("all");
+  const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const [
     appointmentToCancel,
     setAppointmentToCancel,
@@ -383,6 +379,9 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
   const now = new Date();
   const upcomingAppointments = appointments.filter((item) => new Date(item.start) > now && ["pending", "confirmed"].includes(item.status)).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const historyAppointments = appointments.filter((item) => new Date(item.start) <= now || ["completed", "cancelled", "no_show"].includes(item.status)).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+  const appointmentProfessionals = useMemo(() => Array.from(new Map(appointments.map((item) => [item.professionalId, { id: item.professionalId, name: item.professionalName }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [appointments]);
+  const filteredUpcoming = upcomingAppointments.filter((item) => appointmentProfessional === "all" || item.professionalId === appointmentProfessional);
+  const filteredHistory = historyAppointments.filter((item) => appointmentProfessional === "all" || item.professionalId === appointmentProfessional);
   const nextAppointment = upcomingAppointments[0];
 
   async function loadAppointments() {
@@ -392,7 +391,7 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
     finally { setAppointmentsLoading(false); }
   }
 
-  useEffect(() => { void loadAppointments(); }, []);
+  useEffect(() => { queueMicrotask(() => void loadAppointments()); }, []);
 
   async function cancelAppointment(item: ClientAppointment) {
     setCancellingId(item.id);
@@ -411,22 +410,23 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
   }
   return (
     <div className="client-portal">
+      {drawerOpen && <button type="button" className="client-drawer-backdrop" aria-label="Fechar menu" onClick={() => closeDrawer()} />}
+      <aside id="client-navigation" ref={drawerRef} tabIndex={-1} className={`client-mobile-drawer ${drawerOpen ? "client-navigation-open" : ""}`}>
+        <button type="button" className="client-drawer-close icon-button" aria-label="Fechar menu" title="Fechar menu" onClick={() => closeDrawer()}><X aria-hidden="true" /></button>
+        <div className="client-drawer-identity"><span>{initials}</span><div><b>{clientName}</b><small>Cliente</small></div></div>
+        {clientTabs.map(({ label: x, icon: TabIcon }) => <button className={tab === x ? "active" : ""} onClick={() => { setTab(x); closeDrawer(); }} key={x}><TabIcon aria-hidden="true" /> {x}</button>)}
+        <button type="button" className="client-drawer-logout button-with-icon" onClick={logout}><LogOut aria-hidden="true" /> Sair da conta</button>
+      </aside>
       <header>
         <Logo compact />
-        <nav>
-          {[
-            "Início",
-            "Serviços",
-            "Meus agendamentos",
-            "Histórico",
-            "Meu perfil",
-          ].map((x) => (
+        <nav className="client-desktop-navigation">
+          {clientTabs.map(({ label: x, icon: TabIcon }) => (
             <button
               className={tab === x ? "active" : ""}
               onClick={() => setTab(x)}
               key={x}
             >
-              {x}
+              <TabIcon aria-hidden="true" /> {x}
             </button>
           ))}
         </nav>
@@ -440,6 +440,7 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
             </div>
             <button onClick={logout}>Sair</button>
           </div>
+          <button ref={triggerRef} type="button" className="client-menu-button icon-button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="client-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
         </div>
       </header>
       <main>
@@ -457,14 +458,14 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
           </div>
           {tab !== "Serviços" && (
             <button className="primary" onClick={goServices}>
-              ＋ Agendar um serviço
+              <Plus aria-hidden="true" /> Agendar um serviço
             </button>
           )}
         </div>
         {tab === "Serviços" && <ServiceScheduling onAppointmentCreated={loadAppointments} />}
         {tab === "Início" && (
           <>
-            <ClientMediaCarousel items={mediaItems} onSchedule={goServices} />
+            <ShowcaseCarousel compact />
             {appointmentsLoading ? <div className="appointments-feedback">Carregando seu próximo cuidado...</div> : nextAppointment ? (
               <section className="next-appointment">
                 <div className="date-box"><b>{new Date(nextAppointment.start).getDate().toString().padStart(2, "0")}</b><span>{new Date(nextAppointment.start).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}</span></div>
@@ -505,18 +506,20 @@ export function ClientDashboard({ logout, mediaItems, profile }: { logout: () =>
         {tab === "Meus agendamentos" && (
           <div className="screen-card client-list">
             <h2>Próximos horários</h2>
+            <ProfessionalFilter options={appointmentProfessionals} value={appointmentProfessional} onChange={setAppointmentProfessional} className="appointment-professional-filter" />
             {appointmentsLoading && <div className="appointments-inline-empty">Carregando agendamentos...</div>}
-            {!appointmentsLoading && upcomingAppointments.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")} · pagamento {item.paymentStatus === "paid" ? "confirmado" : "no local"}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar outro</button><button disabled={cancellingId === item.id} onClick={() => setAppointmentToCancel(item)}>{cancellingId === item.id ? "Cancelando..." : "Cancelar"}</button></div>)}
-            {!appointmentsLoading && upcomingAppointments.length === 0 && <div className="appointments-inline-empty">Você ainda não possui horários futuros. <button onClick={goServices}>Agendar agora</button></div>}
+            {!appointmentsLoading && filteredUpcoming.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")} · pagamento {item.paymentStatus === "paid" ? "confirmado" : "no local"}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar outro</button><button disabled={cancellingId === item.id} onClick={() => setAppointmentToCancel(item)}>{cancellingId === item.id ? "Cancelando..." : "Cancelar"}</button></div>)}
+            {!appointmentsLoading && filteredUpcoming.length === 0 && <div className="appointments-inline-empty">{appointmentProfessional === "all" ? <>Você ainda não possui horários futuros. <button onClick={goServices}>Agendar agora</button></> : "Nenhum agendamento encontrado para esta profissional."}</div>}
             {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
           </div>
         )}
         {tab === "Histórico" && (
           <div className="screen-card client-list">
             <h2>Histórico de atendimentos</h2>
+            <ProfessionalFilter options={appointmentProfessionals} value={appointmentProfessional} onChange={setAppointmentProfessional} className="appointment-professional-filter" />
             {appointmentsLoading && <div className="appointments-inline-empty">Carregando histórico...</div>}
-            {!appointmentsLoading && historyAppointments.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>{appointmentLongDate(item.start)} às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar novamente</button></div>)}
-            {!appointmentsLoading && historyAppointments.length === 0 && <div className="appointments-inline-empty">Seu histórico ainda está vazio.</div>}
+            {!appointmentsLoading && filteredHistory.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>{appointmentLongDate(item.start)} às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar novamente</button></div>)}
+            {!appointmentsLoading && filteredHistory.length === 0 && <div className="appointments-inline-empty">{appointmentProfessional === "all" ? "Seu histórico ainda está vazio." : "Nenhum agendamento encontrado para esta profissional."}</div>}
             {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
           </div>
         )}

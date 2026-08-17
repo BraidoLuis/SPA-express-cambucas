@@ -9,6 +9,10 @@ import {
   type AdminServiceProfessional,
 } from "../../lib/services/admin-service-management-service";
 import { ActionDialog } from "../shared/action-dialog";
+import { ServiceCoverImage } from "../shared/service-cover-image";
+import { ServiceCoverEditor } from "../shared/service-cover-editor";
+import { applyServiceCoverChange, type CoverImageChange } from "../../lib/services/service-cover-image-service";
+import { Pencil, Plus, X } from "lucide-react";
 
 type LinkDraft = {
   selected: boolean;
@@ -64,6 +68,7 @@ export function AdminServicesSection() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [statusTarget, setStatusTarget] = useState<AdminManagedService | null>(null);
+  const [coverChange, setCoverChange] = useState<CoverImageChange>({ kind: "keep" });
 
   async function loadData() {
     setLoading(true);
@@ -108,6 +113,7 @@ export function AdminServicesSection() {
     setDraft({ ...emptyDraft, links: {} });
     setFormError("");
     setFeedback("");
+    setCoverChange({ kind: "keep" });
     setFormOpen(true);
   }
 
@@ -134,6 +140,7 @@ export function AdminServicesSection() {
     });
     setFormError("");
     setFeedback("");
+    setCoverChange({ kind: "keep" });
     setFormOpen(true);
   }
 
@@ -190,7 +197,7 @@ export function AdminServicesSection() {
 
     setSaving(true);
     try {
-      await saveAdminService({
+      const serviceId = await saveAdminService({
         id: editing?.id,
         name: draft.name,
         category: draft.category,
@@ -200,6 +207,11 @@ export function AdminServicesSection() {
         active: draft.active,
         links,
       });
+      await applyServiceCoverChange(
+        serviceId,
+        editing?.imageUrl ?? null,
+        coverChange,
+      );
       setFormOpen(false);
       setFeedback(editing ? "Serviço atualizado com sucesso." : "Serviço criado com sucesso.");
       await loadData();
@@ -233,7 +245,7 @@ export function AdminServicesSection() {
           <h2>Serviços cadastrados</h2>
           <p>Gerencie procedimentos, duração, valores e profissionais vinculadas.</p>
         </div>
-        <button className="primary" type="button" onClick={openCreate}>+ Adicionar serviço</button>
+        <button className="primary button-with-icon" type="button" onClick={openCreate}><Plus aria-hidden="true" /> Adicionar serviço</button>
       </div>
 
       <div className="admin-service-filters">
@@ -261,6 +273,7 @@ export function AdminServicesSection() {
               const activeLinks = service.links.filter((link) => link.active);
               return (
                 <article key={service.id} className={!service.active ? "is-inactive" : ""}>
+                  <div className="admin-service-cover"><ServiceCoverImage src={service.imageUrl} alt={service.name} /></div>
                   <div className="admin-service-card-heading"><span className="service-admin-icon" aria-hidden="true">✦</span><span className={`active-pill ${service.active ? "" : "inactive"}`}>{service.active ? "Ativo" : "Inativo"}</span></div>
                   <h3>{service.name}</h3>
                   <p className="admin-service-category">{service.category} · {service.duration} minutos</p>
@@ -272,7 +285,7 @@ export function AdminServicesSection() {
                       <span key={link.professionalId}>{link.professionalName}{(link.customDuration !== null || link.customPrice !== null) && <small>{link.customDuration ?? service.duration} min · {currency(link.customPrice ?? service.price)}</small>}</span>
                     )) : <span>Nenhum vínculo ativo</span>}
                   </div>
-                  <footer><button type="button" onClick={() => openEdit(service)}>Editar</button><button type="button" className={service.active ? "danger-text" : ""} onClick={() => setStatusTarget(service)}>{service.active ? "Desativar" : "Ativar"}</button></footer>
+                  <footer><button className="button-with-icon" type="button" onClick={() => openEdit(service)}><Pencil aria-hidden="true" /> Editar</button><button type="button" className={service.active ? "danger-text" : ""} onClick={() => setStatusTarget(service)}>{service.active ? "Desativar" : "Ativar"}</button></footer>
                 </article>
               );
             })}
@@ -283,7 +296,7 @@ export function AdminServicesSection() {
       {formOpen && (
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) setFormOpen(false); }}>
           <form className="simple-modal admin-service-modal" onSubmit={submit}>
-            <button className="modal-close" type="button" disabled={saving} onClick={() => setFormOpen(false)} aria-label="Fechar">×</button>
+            <button className="modal-close icon-button" type="button" disabled={saving} onClick={() => setFormOpen(false)} aria-label="Fechar" title="Fechar"><X aria-hidden="true" /></button>
             <span className="eyebrow">{editing ? "EDITAR SERVIÇO" : "NOVO SERVIÇO"}</span>
             <h2>{editing ? editing.name : "Adicionar serviço"}</h2>
             <div className="admin-service-form-grid">
@@ -293,6 +306,7 @@ export function AdminServicesSection() {
               <label><span>Duração base (minutos) *</span><input type="number" min="1" step="1" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: event.target.value })} disabled={saving} /></label>
               <label><span>Preço base (R$) *</span><input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={saving} /></label>
             </div>
+            <ServiceCoverEditor key={editing?.id || "new-service"} currentUrl={editing?.imageUrl} serviceName={draft.name || "serviço"} disabled={saving} onChange={setCoverChange} onError={setFormError} />
             <fieldset className="admin-service-links"><legend>Profissionais vinculadas *</legend>{professionals.map((item) => { const link = draft.links[item.id] || { selected: false, customValues: false, customDuration: draft.duration, customPrice: draft.price }; return <div className="admin-service-link" key={item.id}><label className="admin-service-check"><input type="checkbox" checked={link.selected} onChange={(event) => updateLink(item.id, { selected: event.target.checked })} disabled={saving || !item.active} /><span>{item.name}{!item.active ? " (inativa)" : ""}</span></label>{link.selected && <><label className="admin-service-check custom"><input type="checkbox" checked={link.customValues} onChange={(event) => updateLink(item.id, { customValues: event.target.checked })} disabled={saving} /><span>Usar preço ou duração personalizados</span></label>{link.customValues && <div className="admin-service-custom-values"><label><span>Duração</span><input type="number" min="1" step="1" value={link.customDuration} onChange={(event) => updateLink(item.id, { customDuration: event.target.value })} disabled={saving} /></label><label><span>Preço</span><input type="number" min="0" step="0.01" value={link.customPrice} onChange={(event) => updateLink(item.id, { customPrice: event.target.value })} disabled={saving} /></label></div>}</>}</div>; })}</fieldset>
             {professionals.length === 0 && <p className="form-error">Nenhuma profissional foi encontrada no Supabase.</p>}
             {formError && <p className="form-error">{formError}</p>}

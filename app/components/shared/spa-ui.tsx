@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Bell, Check, DollarSign, Moon, Sun } from "lucide-react";
 
 export const Icon = ({ children }: { children: React.ReactNode }) => (
   <span className="icon">{children}</span>
@@ -34,7 +35,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={dark ? "Ativar modo claro" : "Ativar modo escuro"}
     >
-      <span aria-hidden="true">{dark ? "☀" : "☾"}</span>
+      {dark ? <Sun aria-hidden="true" /> : <Moon aria-hidden="true" />}
     </button>
   );
 }
@@ -53,10 +54,10 @@ export function NotificationBell({ audience = "admin" }: { audience?: "admin" | 
         ["Novo horário na sua agenda", "Fernanda marcou Blindagem para sexta-feira às 16:00."],
       ];
   return <div className="notification-center">
-    <button className="notification" onClick={() => setOpen(!open)} aria-label="Abrir notificações">♢{!read && <i>{items.length}</i>}</button>
+    <button className="notification icon-button" onClick={() => setOpen(!open)} aria-label="Abrir notificações" title="Notificações"><Bell aria-hidden="true" />{!read && <i>{items.length}</i>}</button>
     {open && <div className="notification-popover">
       <header><div><span>ATUALIZAÇÕES</span><h3>Notificações</h3></div><button onClick={() => setRead(true)}>Marcar como lidas</button></header>
-      <div className="notification-feed">{items.map((item,index)=><article className={read ? "read" : ""} key={item[0]+index}><span>{index===1?"R$":"✓"}</span><div><b>{item[0]}</b><p>{item[1]}</p><small>{index===0?"Agora":`${index+1}h atrás`}</small></div></article>)}</div>
+      <div className="notification-feed">{items.map((item,index)=><article className={read ? "read" : ""} key={item[0]+index}><span>{index===1?<DollarSign aria-hidden="true" />:<Check aria-hidden="true" />}</span><div><b>{item[0]}</b><p>{item[1]}</p><small>{index===0?"Agora":`${index+1}h atrás`}</small></div></article>)}</div>
       <footer>As notificações também ficam armazenadas no Supabase.</footer>
     </div>}
   </div>;

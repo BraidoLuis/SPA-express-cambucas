@@ -43,6 +43,11 @@ import {
   type ProfessionalScheduleBlock,
 } from "../../lib/services/professional-schedule-block-service";
 import { Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
+import { ServiceCoverImage } from "../shared/service-cover-image";
+import { ServiceCoverEditor } from "../shared/service-cover-editor";
+import { applyServiceCoverChange, type CoverImageChange } from "../../lib/services/service-cover-image-service";
+import { ArrowLeft, Bell, CalendarDays, Clock, Home, LogOut, Menu, Sparkles, X } from "lucide-react";
+import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
 
 const professionalStatusLabel: Record<
   ProfessionalAppointmentStatus,
@@ -85,6 +90,7 @@ export function ProfessionalDashboard({
   goPublic: () => void;
   logout: () => void;
 }) {
+  const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const [section, setSection] = useState("Meu dia");
   const today = new Date();
   const [agendaMonth, setAgendaMonth] = useState(monthKey(today));
@@ -162,6 +168,8 @@ export function ProfessionalDashboard({
   const [servicesError, setServicesError] = useState("");
   const [savingService, setSavingService] = useState(false);
   const [editingServiceId, setEditingServiceId] = useState("");
+  const [newServiceCoverChange, setNewServiceCoverChange] = useState<CoverImageChange>({ kind: "keep" });
+  const [editServiceCoverChange, setEditServiceCoverChange] = useState<CoverImageChange>({ kind: "keep" });
   const [
     availabilityRules,
     setAvailabilityRules,
@@ -196,6 +204,7 @@ export function ProfessionalDashboard({
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
   const firstWeekday = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1).getDay();
   const menu = ["Meu dia", "Minha agenda", "Meus serviços", "Disponibilidade", "Notificações"];
+  const menuIcons = [Home, CalendarDays, Sparkles, Clock, Bell];
   const todayKey = localDateKey(today);
 
   const activeTodayAppointments =
@@ -219,20 +228,10 @@ export function ProfessionalDashboard({
     try {
       const currentMonth = monthKey(new Date());
 
-      const [todayData, selectedMonthData] =
-        await Promise.all([
-          getProfessionalAgenda(access.id, currentMonth),
-
-          agendaMonth === currentMonth
-            ? getProfessionalAgenda(
-                access.id,
-                currentMonth,
-              )
-            : getProfessionalAgenda(
-                access.id,
-                agendaMonth,
-              ),
-        ]);
+      const todayData = await getProfessionalAgenda(access.id, currentMonth);
+      const selectedMonthData = agendaMonth === currentMonth
+        ? todayData
+        : await getProfessionalAgenda(access.id, agendaMonth);
 
       setTodayAppointments(
         todayData.filter(
@@ -276,17 +275,18 @@ export function ProfessionalDashboard({
     setServicesError("");
 
     try {
-      await createProfessionalService({
+      const serviceId = await createProfessionalService({
         name: String(form.get("name")),
         category: String(form.get("category")),
         description: String(form.get("description") || ""),
         duration: Number(form.get("duration")),
         price: Number(form.get("price")),
-        image: isEliane ? "/spa-eliane.png" : "/spa-nails.png",
       });
+      await applyServiceCoverChange(serviceId, null, newServiceCoverChange);
 
       formElement.reset();
       setShowServiceForm(false);
+      setNewServiceCoverChange({ kind: "keep" });
 
       await loadServices();
     } catch (error) {
@@ -317,8 +317,14 @@ export function ProfessionalDashboard({
         price: Number(form.get("price")),
         active: service.active,
       });
+      await applyServiceCoverChange(
+        service.id,
+        service.image,
+        editServiceCoverChange,
+      );
 
       setEditingServiceId("");
+      setEditServiceCoverChange({ kind: "keep" });
       await loadServices();
     } catch {
       setServicesError(
@@ -1009,29 +1015,34 @@ function completionForm(
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAgenda();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access.id, agendaMonth]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadServices();
 
     // Recarrega quando a conta profissional mudar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access.id]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAvailability();
 
     // Recarrega quando a conta profissional mudar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access.id]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadTimeOffs();
 
     // Recarrega quando a conta profissional mudar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [access.id]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadScheduleBlocks();
 
     // Recarrega quando a profissional ou o mês consultado mudar.
@@ -1039,8 +1050,10 @@ function completionForm(
   }, [access.id, agendaMonth]);
   return (
     <div className="admin-shell professional-shell">
-      <aside>
+      {drawerOpen && <button className="dashboard-drawer-backdrop" type="button" aria-label="Fechar menu" onClick={() => closeDrawer()} />}
+      <aside id="professional-navigation" ref={drawerRef} tabIndex={-1} className={drawerOpen ? "dashboard-drawer-open" : ""}>
         <Logo compact />
+        <button className="dashboard-drawer-close icon-button" type="button" aria-label="Fechar menu" title="Fechar menu" onClick={() => closeDrawer()}><X aria-hidden="true" /></button>
         <div className="professional-aside-profile">
           <span>{initials}</span>
           <div>
@@ -1049,30 +1062,32 @@ function completionForm(
           </div>
         </div>
         <nav>
-          {menu.map((m, i) => (
+          {menu.map((m, i) => {
+            const MenuIcon = menuIcons[i];
+            return (
             <button
               className={section === m ? "active" : ""}
-              onClick={() => setSection(m)}
+              onClick={() => { setSection(m); closeDrawer(false); }}
               key={m}
             >
-              <span>{["⌂", "▦", "✦", "◷", "♢"][i]}</span>
+              <span><MenuIcon aria-hidden="true" /></span>
               {m}
               {m === "Meu dia" && (
                 <i>{activeTodayAppointments.length}</i>
               )}
             </button>
-          ))}
+          );})}
         </nav>
         <div className="permission-note">
           <span>⌾</span>
           <b>Acesso profissional</b>
           <small>Você visualiza somente sua agenda e seus serviços.</small>
         </div>
-        <button className="view-site" onClick={goPublic}>
-          ← Ver site público
+        <button className="view-site button-with-icon" onClick={goPublic}>
+          <ArrowLeft aria-hidden="true" /> Ver site público
         </button>
-        <button className="view-site logout" onClick={logout}>
-          ↪ Sair da conta
+        <button className="view-site logout button-with-icon" onClick={logout}>
+          <LogOut aria-hidden="true" /> Sair da conta
         </button>
       </aside>
       <main className="admin-main professional-main">
@@ -1093,6 +1108,7 @@ function completionForm(
               </div>
               ⌄
             </div>
+            <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="professional-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>
         </header>
         {section === "Meu dia" && (
@@ -1531,7 +1547,7 @@ function completionForm(
                 <h2>Serviços que você realiza</h2>
                 <p>Cadastre seus serviços e informe a duração real de cada atendimento.</p>
               </div>
-              <button className="primary" onClick={() => setShowServiceForm(!showServiceForm)}>＋ Adicionar serviço</button>
+              <button className="primary" onClick={() => { setShowServiceForm(!showServiceForm); setNewServiceCoverChange({ kind: "keep" }); }}>＋ Adicionar serviço</button>
             </div>
             {showServiceForm && (
               <form
@@ -1590,6 +1606,8 @@ function completionForm(
                   />
                 </label>
 
+                <ServiceCoverEditor currentUrl={null} serviceName="novo serviço" disabled={savingService} onChange={setNewServiceCoverChange} onError={setServicesError} />
+
                 <button className="primary" disabled={savingService}>
                   {savingService ? "Salvando..." : "Salvar serviço"}
                 </button>
@@ -1607,15 +1625,14 @@ function completionForm(
               </p>
             )}
             <div className="admin-service-grid professional-services">
-              {myServices.map((service, index) => (
+              {myServices.map((service) => (
                 <article
                   className={!service.active ? "inactive-service" : ""}
                   key={service.id}
                 >
+                  <div className="professional-service-cover"><ServiceCoverImage src={service.image} alt={service.name} /></div>
                   <div className="service-admin-icon">
-                    {isEliane
-                      ? ["♨", "≈", "✧", "◇"][index % 4]
-                      : ["✦", "♢"][index % 2]}
+                    <Sparkles aria-hidden="true" />
                   </div>
 
                   <span
@@ -1632,7 +1649,7 @@ function completionForm(
                     {service.category} · {service.duration} minutos
                   </p>
 
-                  <div>
+                  <div className="professional-service-meta">
                     <b>
                       {service.price.toLocaleString("pt-BR", {
                         style: "currency",
@@ -1679,10 +1696,12 @@ function completionForm(
                         />
                       </label>
 
+                      <ServiceCoverEditor key={service.id} currentUrl={service.image} serviceName={service.name} disabled={savingService} onChange={setEditServiceCoverChange} onError={setServicesError} />
+
                       <div>
                         <button
                           type="button"
-                          onClick={() => setEditingServiceId("")}
+                          onClick={() => { setEditingServiceId(""); setEditServiceCoverChange({ kind: "keep" }); }}
                         >
                           Voltar
                         </button>
@@ -1699,15 +1718,16 @@ function completionForm(
 
                   <footer>
                     <button
-                      onClick={() =>
+                      onClick={() => {
+                        setEditServiceCoverChange({ kind: "keep" });
                         setEditingServiceId(
                           editingServiceId === service.id
                             ? ""
                             : service.id,
-                        )
-                      }
+                        );
+                      }}
                     >
-                      Editar duração e valor
+                      Editar serviço
                     </button>
 
                     <button
