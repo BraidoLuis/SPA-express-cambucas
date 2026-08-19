@@ -137,7 +137,7 @@ export default function Home() {
       const allowed = await routeProfile(found, portal);
       if (!allowed) {
         await logoutUser();
-        return { error: portal === "admin" ? "Esta conta é de cliente. Use o acesso público para entrar." : "Esta conta pertence à equipe. Use o acesso reservado da equipe." };
+        return { error: portal === "admin" ? "E-mail ou senha incorretos." : "E-mail ou senha incorretos." };
       }
       return {};
     } catch (error) {

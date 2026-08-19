@@ -65,7 +65,7 @@ export function LoginScreen({ role, close, onLogin }: {
     <div className="login-side"><div className="mobile-login-hero"><img src={admin ? "/team-access.png" : "/client-access.png"} alt="" /><div className="mobile-login-shade" /><button className="icon-button" onClick={close} aria-label="Voltar ao site" title="Voltar ao site"><ArrowLeft aria-hidden="true" /></button><Logo compact /><div><span>✦</span><p>{admin ? "Seu espaço de trabalho, do seu jeito." : "Você merece um momento só seu."}</p></div></div>
       <form className="login-box" onSubmit={recovering ? savePassword : submit}>
       <div className="logo-box">
-        <div className="access-badge">{admin ? <><Settings aria-hidden="true" /> ACESSO DA EQUIPE</> : <><Heart aria-hidden="true" /> ÁREA DA CLIENTE</>}</div>
+        <div className="access-badge">{admin ? <> ACESSO DA EQUIPE</> : <> ÁREA DA CLIENTE</>}</div>
         <span className="eyebrow">SPA EXPRESS CAMBUCÁS</span>
       </div>
         <h2>{recovering ? "Crie uma nova senha" : admin ? "Acesse seu espaço" : "Entre na sua conta"}</h2>
@@ -73,7 +73,7 @@ export function LoginScreen({ role, close, onLogin }: {
         {!recovering && <><label>E-mail</label><div className="login-input"><span>✉</span><input type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" /></div></>}
         <label>{recovering ? "Nova senha" : "Senha"}</label><div className="login-input"><span>⌑</span><input type={show ? "text" : "password"} autoComplete={recovering ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo de 8 caracteres" /><button type="button" onClick={() => setShow(!show)}>{show ? "Ocultar" : "Exibir"}</button></div>
         {recovering && <><label>Confirmar nova senha</label><div className="login-input"><span>⌑</span><input type={show ? "text" : "password"} autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} /></div></>}
-        {!recovering && <div className="login-options"><span>Sua sessão permanece ativa com segurança.</span><button type="button" onClick={forgotPassword}>Esqueci minha senha</button></div>}
+        {!recovering && <div className="login-options"><button type="button" onClick={forgotPassword}>Esqueci minha senha</button></div>}
         {error && <p className="form-server-error">{error}</p>}{message && <p className="form-success-message">{message}</p>}
         <button className="primary login-submit" disabled={submitting}>{submitting ? "Aguarde..." : recovering ? "Salvar nova senha →" : admin ? "Entrar no painel →" : "Entrar na minha conta →"}</button>
         {!admin && !recovering && <><div className="login-divider"><span>ou</span></div><p className="signup">Primeira vez por aqui? <button type="button" onClick={() => setCreating(true)}>Criar minha conta</button></p></>}
