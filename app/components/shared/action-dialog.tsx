@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { Check, TriangleAlert, X } from "lucide-react";
@@ -38,12 +39,38 @@ export function ActionDialog({
 }: ActionDialogProps) {
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
+  const cancelRef = useRef(onCancel);
+  const loadingRef = useRef(loading);
 
+  useEffect(() => {
+    cancelRef.current = onCancel;
+    loadingRef.current = loading;
+  }, [loading, onCancel]);
+
+  /* Resetting controlled confirmation input for each fresh opening is intentional. */
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open) {
       setValue("");
       setError("");
     }
+  }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !loadingRef.current) cancelRef.current();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      requestAnimationFrame(() => previousFocus?.focus());
+    };
   }, [open]);
 
   if (!open) return null;

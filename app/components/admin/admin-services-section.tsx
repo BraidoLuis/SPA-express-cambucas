@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   getAdminServiceManagementData,
   saveAdminService,
@@ -52,7 +52,8 @@ function messageFrom(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-export function AdminServicesSection() {
+export function AdminServicesSection({ createRequest = 0 }: { createRequest?: number }) {
+  const previousCreateRequest = useRef(0);
   const [services, setServices] = useState<AdminManagedService[]>([]);
   const [professionals, setProfessionals] = useState<AdminServiceProfessional[]>([]);
   const [loading, setLoading] = useState(true);
@@ -116,6 +117,12 @@ export function AdminServicesSection() {
     setCoverChange({ kind: "keep" });
     setFormOpen(true);
   }
+
+  useEffect(() => {
+    if (createRequest === previousCreateRequest.current) return;
+    previousCreateRequest.current = createRequest;
+    openCreate();
+  }, [createRequest]);
 
   function openEdit(service: AdminManagedService) {
     const links: Record<string, LinkDraft> = {};

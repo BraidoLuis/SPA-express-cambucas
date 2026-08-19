@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import { bookings, services, type Booking } from "../../lib/spa-data";
+import { useEffect, useRef, useState } from "react";
+import { services, type Booking } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
 import {
@@ -14,9 +14,16 @@ import {
   type AdminPaymentMethod,
 } from "../../lib/services/admin-dashboard-service";
 import { AdminServicesSection } from "./admin-services-section";
-import { ArrowLeft, CalendarDays, ChartNoAxesCombined, Contact, Home, Image, LogOut, Menu, Settings, Sparkles, UserRound, Users, X } from "lucide-react";
+import { ArrowLeft, Ban, CalendarDays, ChartNoAxesCombined, Contact, Home, Image, LogOut, Menu, Plus, Settings, Sparkles, UserRound, Users, X } from "lucide-react";
 import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
 import { AdminShowcaseSection } from "./admin-showcase-section";
+import { AdminProfessionalsSection } from "./admin-professionals-section";
+import { AdminClientsSection } from "./admin-clients-section";
+import { AdminReportsSection } from "./admin-reports-section";
+import { AdminAppointmentForm } from "./admin-appointment-form";
+import { AdminScheduleBlockForm } from "./admin-schedule-block-form";
+import type { AdminAppointmentClient } from "../../lib/services/admin-appointment-service";
+import { AdminSettingsSection } from "./admin-settings-section";
 
 function AdminContent({
   section,
@@ -30,6 +37,11 @@ function AdminContent({
   adminAppointments,
   adminAppointmentsLoading,
   adminAppointmentsError,
+  serviceCreateRequest,
+  professionalCreateRequest,
+  onQuickAction,
+  onScheduleClient,
+  dataRevision,
   }: {
   section: string;
   filter: string;
@@ -42,6 +54,11 @@ function AdminContent({
   adminAppointments: AdminAppointment[];
   adminAppointmentsLoading: boolean;
   adminAppointmentsError: string;
+  serviceCreateRequest: number;
+  professionalCreateRequest: number;
+  onQuickAction: (action: "appointment" | "service" | "professional" | "block") => void;
+  onScheduleClient: (client: AdminAppointmentClient) => void;
+  dataRevision: number;
 }) {
   const [appointmentSearch, setAppointmentSearch] = useState("");
   const [appointmentStatus, setAppointmentStatus] = useState("Todos");
@@ -166,9 +183,9 @@ function AdminContent({
     return () => {
       active = false;
     };
-  }, [section, adminCalendarMonthKey]);
+  }, [section, adminCalendarMonthKey, dataRevision]);
 
-  if (section.startsWith("Servi")) return <AdminServicesSection />;
+  if (section.startsWith("Servi")) return <AdminServicesSection createRequest={serviceCreateRequest} />;
 
   if (section === "Visão geral")
     return (
@@ -290,7 +307,7 @@ function AdminContent({
           <TeamCard rows={overview?.professionals ?? []} />
           </div>
         </section>
-        <QuickActions action={() => setAddOpen(true)} />
+        <QuickActions onAction={onQuickAction} />
       </>
     );
     if (section === "Agenda")
@@ -451,239 +468,12 @@ function AdminContent({
     );
   if (section === "Conteúdo") return <AdminShowcaseSection />;
   if (section === "Profissionais")
-    return (
-      <div>
-        <ScreenTop
-          title="Sua equipe"
-          text="Cadastre profissionais e defina serviços e disponibilidade."
-          button="＋ Nova profissional"
-          action={() => setAddOpen(true)}
-        />
-        <div className="professional-cards">
-          <article>
-            <div className="big-avatar eliane">EC</div>
-            <span className="online">● Disponível hoje</span>
-            <h3>Eliane Cristina Braido</h3>
-            <p>Massagista & Esteticista</p>
-            <div className="mini-stats">
-              <span>
-                <b>5</b> hoje
-              </span>
-              <span>
-                <b>68</b> no mês
-              </span>
-              <span>
-                <b>4,9</b> avaliação
-              </span>
-            </div>
-            <div className="skill-tags">
-              <span>Drenagem</span>
-              <span>Massagem</span>
-              <span>Facial</span>
-            </div>
-            <button>Ver agenda e perfil →</button>
-          </article>
-          <article>
-            <div className="big-avatar dayanne">DC</div>
-            <span className="online">● Disponível hoje</span>
-            <h3>Dayanne Braido</h3>
-            <p>Manicure & Nail designer</p>
-            <div className="mini-stats">
-              <span>
-                <b>3</b> hoje
-              </span>
-              <span>
-                <b>56</b> no mês
-              </span>
-              <span>
-                <b>4,8</b> avaliação
-              </span>
-            </div>
-            <div className="skill-tags">
-              <span>Manicure</span>
-              <span>Blindagem</span>
-              <span>Gel</span>
-            </div>
-            <button>Ver agenda e perfil →</button>
-          </article>
-        </div>
-      </div>
-    );
+    return <AdminProfessionalsSection createRequest={professionalCreateRequest} />;
   if (section === "Clientes")
-    return (
-      <div className="screen-card">
-        <ScreenTop
-          title="Clientes"
-          text="Histórico e relacionamento em um só lugar."
-          button="＋ Cadastrar cliente"
-          action={() => setAddOpen(true)}
-        />
-        <div className="table-filters">
-          <input placeholder="⌕ Buscar cliente" />
-          <select>
-            <option>Mais recentes</option>
-          </select>
-        </div>
-        <div className="client-table">
-          <div className="client-table-head">
-            <b>CLIENTE</b>
-            <b>CONTATO</b>
-            <b>ÚLTIMO SERVIÇO</b>
-            <b>VISITAS</b>
-            <b>STATUS</b>
-          </div>
-          {[
-            "Mariana Alves",
-            "Carla Mendes",
-            "Beatriz Lima",
-            "Fernanda Souza",
-            "Juliana Rocha",
-          ].map((n, i) => (
-            <div className="client-table-row" key={n}>
-              <span className="client-avatar">
-                {n
-                  .split(" ")
-                  .map((x) => x[0])
-                  .join("")}
-              </span>
-              <div>
-                <b>{n}</b>
-                <small>Cliente desde {2024 + (i % 2)}</small>
-              </div>
-              <div>
-                <b>
-                  (21) 9999{i}-12{i}4
-                </b>
-                <small>{n.split(" ")[0].toLowerCase()}@email.com</small>
-              </div>
-              <span>
-                {services[i].name}
-                <small>0{i + 2}/08/2026</small>
-              </span>
-              <strong>{4 + i * 3}</strong>
-              <em className="confirmado">Ativa</em>
-              <button>•••</button>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <AdminClientsSection onSchedule={onScheduleClient} />;
   if (section === "Relatórios")
-    return (
-      <div>
-        <ScreenTop
-          title="Relatórios e desempenho"
-          text="Indicadores para tomar decisões melhores."
-        />
-        <section className="stats report-stats">
-          <article>
-            <div>
-              <span>Receita recebida</span>
-              <Icon>R$</Icon>
-            </div>
-            <b>R$ 12.460</b>
-            <p className="positive">
-              ↗ 11,4% <small>pagamentos confirmados no mês</small>
-            </p>
-          </article>
-          <article>
-            <div>
-              <span>Ticket médio</span>
-              <Icon>↗</Icon>
-            </div>
-            <b>R$ 119</b>
-            <p className="positive">
-              ↗ R$ 8 <small>vs. mês passado</small>
-            </p>
-          </article>
-          <article>
-            <div>
-              <span>Cancelamentos</span>
-              <Icon>×</Icon>
-            </div>
-            <b>4,2%</b>
-            <p>
-              <small>Abaixo da média</small>
-            </p>
-          </article>
-        </section>
-        <div className="report-grid">
-          <div className="screen-card chart-card">
-            <h2>Agendamentos por mês</h2>
-            <div className="chart-bars">
-              {[55, 68, 61, 82, 74, 92].map((h, i) => (
-                <div key={i}>
-                  <i style={{ height: `${h}%` }} />
-                  <span>{["Mar", "Abr", "Mai", "Jun", "Jul", "Ago"][i]}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="panel">
-            <h2>Distribuição por categoria</h2>
-            <div className="donut">
-              <div>
-                <b>124</b>
-                <small>atendimentos</small>
-              </div>
-            </div>
-            <div className="legend">
-              <span>
-                <i /> Estética corporal <b>38%</b>
-              </span>
-              <span>
-                <i /> Unhas <b>34%</b>
-              </span>
-              <span>
-                <i /> Facial <b>28%</b>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  return (
-    <div className="settings-grid">
-      <div className="screen-card settings-nav">
-        <button className="active">Dados do SPA</button>
-        <button>Horários de funcionamento</button>
-        <button>Regras de agendamento</button>
-        <button>Notificações</button>
-        <button>Usuários e acessos</button>
-      </div>
-      <div className="screen-card settings-form">
-        <h2>Dados do SPA</h2>
-        <p>Informações exibidas para clientes.</p>
-        <div className="form-grid">
-          <label>
-            Nome
-            <input defaultValue="SPA Express Cambucás" />
-          </label>
-          <label>
-            Telefone
-            <input defaultValue="(21) 99999-0000" />
-          </label>
-          <label>
-            E-mail
-            <input defaultValue="contato@spaexpress.com.br" />
-          </label>
-          <label>
-            CEP
-            <input defaultValue="24700-000" />
-          </label>
-          <label className="wide">
-            Endereço
-            <input defaultValue="Cambucás, São Gonçalo — RJ" />
-          </label>
-          <label className="wide">
-            Descrição
-            <textarea defaultValue="Beleza, cuidado e bem-estar em cada atendimento." />
-          </label>
-        </div>
-        <button className="primary">Salvar alterações</button>
-      </div>
-    </div>
-  );
+    return <AdminReportsSection />;
+  return <AdminSettingsSection />;
 }
 
 function AdminMonthlyCalendar({
@@ -1572,26 +1362,28 @@ function TeamCard({
   );
 }
 
-function QuickActions({ action }: { action: () => void }) {
+function QuickActions({ onAction }: { onAction: (action: "appointment" | "service" | "professional" | "block") => void }) {
+  const actions = [
+    { label: "Novo agendamento", description: "Agendar um horário", action: "appointment" as const, icon: CalendarDays },
+    { label: "Adicionar serviço", description: "Cadastre um procedimento", action: "service" as const, icon: Sparkles },
+    { label: "Cadastrar profissional", description: "Adicione à equipe", action: "professional" as const, icon: Users },
+    { label: "Bloquear horário", description: "Indisponibilidade na agenda", action: "block" as const, icon: Ban },
+  ];
   return (
     <section className="quick-actions">
       <h2>Ações rápidas</h2>
       <div>
-        {[
-          ["＋", "Novo agendamento", "Agendar um horário"],
-          ["✦", "Adicionar serviço", "Cadastre um procedimento"],
-          ["♙", "Cadastrar profissional", "Adicione à equipe"],
-          ["▣", "Bloquear horário", "Indisponibilidade na agenda"],
-        ].map((x) => (
-          <button onClick={action} key={x[1]}>
-            <Icon>{x[0]}</Icon>
+        {actions.map((item) => {
+          const ActionIcon = item.icon;
+          return <button onClick={() => onAction(item.action)} key={item.label}>
+            <span className="icon"><ActionIcon aria-hidden="true"/></span>
             <span>
-              <b>{x[1]}</b>
-              <small>{x[2]}</small>
+              <b>{item.label}</b>
+              <small>{item.description}</small>
             </span>
-            →
+            <Plus aria-hidden="true"/>
           </button>
-        ))}
+        ;})}
       </div>
     </section>
   );
@@ -1610,6 +1402,12 @@ export function AdminDashboard({
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [appointmentClient, setAppointmentClient] = useState<AdminAppointmentClient | null>(null);
+  const [serviceCreateRequest, setServiceCreateRequest] = useState(0);
+  const [professionalCreateRequest, setProfessionalCreateRequest] = useState(0);
+  const [dataRevision, setDataRevision] = useState(0);
+  const flowOpenerRef = useRef<HTMLElement | null>(null);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState("");
@@ -1684,7 +1482,26 @@ export function AdminDashboard({
     ]);
   }
 
+  async function handleScheduleChanged() {
+    await reloadAdminData();
+    setDataRevision((value) => value + 1);
+  }
+
+  function quickAction(action: "appointment" | "service" | "professional" | "block") {
+    flowOpenerRef.current = document.activeElement as HTMLElement | null;
+    if (action === "appointment") { setAppointmentClient(null); setAddOpen(true); return; }
+    if (action === "block") { setBlockOpen(true); return; }
+    if (action === "service") { setSection("Serviços"); setServiceCreateRequest((value) => value + 1); return; }
+    setSection("Profissionais"); setProfessionalCreateRequest((value) => value + 1);
+  }
+
+  function closeAdminFlow(setter: (open: boolean) => void) {
+    setter(false);
+    requestAnimationFrame(() => flowOpenerRef.current?.focus());
+  }
+
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void reloadAdminData();
 
     // Os dados devem ser carregados somente na abertura.
@@ -1764,7 +1581,7 @@ export function AdminDashboard({
           section={section}
           filter={filter}
           setFilter={setFilter}
-          setAddOpen={setAddOpen}
+          setAddOpen={(open) => { if (open) flowOpenerRef.current = document.activeElement as HTMLElement | null; setAppointmentClient(null); setAddOpen(open); }}
           overview={overview}
           overviewLoading={overviewLoading}
           overviewError={overviewError}
@@ -1772,30 +1589,14 @@ export function AdminDashboard({
           adminAppointments={adminAppointments}
           adminAppointmentsLoading={adminAppointmentsLoading}
           adminAppointmentsError={adminAppointmentsError}
+          serviceCreateRequest={serviceCreateRequest}
+          professionalCreateRequest={professionalCreateRequest}
+          onQuickAction={quickAction}
+          onScheduleClient={(client) => { flowOpenerRef.current = document.activeElement as HTMLElement | null; setAppointmentClient(client); setAddOpen(true); }}
+          dataRevision={dataRevision}
           />
-        {addOpen && (
-          <div className="modal-backdrop">
-            <div className="simple-modal">
-              <button className="modal-close icon-button" onClick={() => setAddOpen(false)} aria-label="Fechar" title="Fechar">
-                <X aria-hidden="true" />
-              </button>
-              <span className="eyebrow">NOVO CADASTRO</span>
-              <h2>Adicionar à agenda</h2>
-              <div className="form-grid">
-                <input placeholder="Nome do cliente ou serviço" />
-                <input placeholder="Duração em minutos" />
-                <input placeholder="Valor (R$)" />
-                <select>
-                  <option>Eliane</option>
-                  <option>Dayanne</option>
-                </select>
-              </div>
-              <button className="primary" onClick={() => setAddOpen(false)}>
-                Salvar cadastro
-              </button>
-            </div>
-          </div>
-        )}
+        <AdminAppointmentForm open={addOpen} initialClient={appointmentClient} onClose={() => { closeAdminFlow(setAddOpen); setAppointmentClient(null); }} onCreated={handleScheduleChanged}/>
+        <AdminScheduleBlockForm open={blockOpen} onClose={() => closeAdminFlow(setBlockOpen)} onCreated={handleScheduleChanged}/>
       </main>
     </div>
   );

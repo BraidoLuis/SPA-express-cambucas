@@ -46,17 +46,60 @@ type AppointmentRow = {
   | null;
 };
 
-export async function createClientAppointment(input: CreateAppointmentInput): Promise<string> {
-  const { data, error } = await createClient().rpc("create_client_appointment", {
-    p_professional_id: input.professionalId,
-    p_service_id: input.serviceId,
-    p_slot_start: input.slotStart,
-    p_notes: input.notes?.trim() || null,
-  });
+export async function createClientAppointment(
+  input: CreateAppointmentInput,
+): Promise<string> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase.rpc(
+    "create_client_appointment",
+    {
+      p_professional_id: input.professionalId,
+      p_service_id: input.serviceId,
+      p_slot_start: input.slotStart,
+      p_notes: input.notes?.trim() || null,
+    },
+  );
 
   if (error) throw error;
-  if (!data) throw new Error("O agendamento não retornou um identificador.");
-  return data as string;
+
+  if (!data) {
+    throw new Error(
+      "O agendamento não retornou um identificador.",
+    );
+  }
+
+  const appointmentId = data as string;
+
+  /*
+   * O agendamento já foi salvo no Supabase neste ponto.
+   * Qualquer falha de rede ou do Resend não deve desfazer a reserva.
+   */
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      await fetch("/api/notifications/appointment", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          appointmentId,
+        }),
+      });
+    }
+  } catch {
+    /*
+     * A notificação continuará pendente no banco para uma
+     * tentativa posterior. O agendamento permanece confirmado.
+     */
+  }
+
+  return appointmentId;
 }
 
 export async function getClientAppointments(): Promise<ClientAppointment[]> {

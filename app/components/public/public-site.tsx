@@ -221,11 +221,6 @@ export function PublicSite({
                 de <em>autocuidado</em>
               </h2>
             </div>
-            <p>
-              Esta vitrine usa o mesmo catálogo exibido para as clientes. Sempre
-              que a administradora ou uma profissional publicar um serviço,
-              ele poderá aparecer aqui automaticamente enquanto estiver ativo.
-            </p>
           </div>
           <div className="services-tools">
             <div className="service-filter-group"><div className="service-filter-buttons">
