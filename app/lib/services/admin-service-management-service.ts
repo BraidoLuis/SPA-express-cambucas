@@ -1,4 +1,7 @@
 import { createClient } from "../../../lib/supabase/client";
+import {
+  validateServiceDuration,
+} from "../validations/service-duration";
 
 export type AdminServiceProfessional = {
   id: string;
@@ -156,8 +159,25 @@ function createSlug(name: string) {
   return `${base}-${Date.now().toString(36)}`;
 }
 
-export async function saveAdminService(input: SaveAdminServiceInput): Promise<string> {
+export async function saveAdminService(
+  input: SaveAdminServiceInput,
+): Promise<string> {
+  validateServiceDuration(
+    input.duration,
+    "A duração base",
+  );
+
+  for (const link of input.links) {
+    if (link.customDuration !== null) {
+      validateServiceDuration(
+        link.customDuration,
+        "A duração personalizada",
+      );
+    }
+  }
+
   const supabase = createClient();
+
   const { data: userResult, error: userError } = await supabase.auth.getUser();
   if (userError || !userResult.user) {
     throw new Error("Sua sessão expirou. Entre novamente para salvar o serviço.");

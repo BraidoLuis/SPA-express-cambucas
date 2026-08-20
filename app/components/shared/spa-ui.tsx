@@ -1,6 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Bell, Check, DollarSign, Moon, Sun } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, } from "react";
+import Image from "next/image";
+import { Bell, Check, DollarSign, Moon, Sun, X } from "lucide-react";
+import {
+  getMyInAppNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+  type InAppNotification,
+} from "../../lib/services/notification-service";
 
 export const Icon = ({ children }: { children: React.ReactNode }) => (
   <span className="icon">{children}</span>
@@ -8,9 +15,14 @@ export const Icon = ({ children }: { children: React.ReactNode }) => (
 export function Logo({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`logo ${compact ? "compact" : ""}`}>
-      <span>✦</span>
-      <b>SPA EXPRESS</b>
-      <small>CAMBUCÁS</small>
+      <Image
+        src="/logo-spa.png"
+        alt="SPA Express Cambucás"
+        width={180}
+        height={72}
+        className="logo-image"
+        priority
+      />
     </div>
   );
 }
@@ -40,25 +52,333 @@ export function ThemeToggle() {
   );
 }
 
-export function NotificationBell({ audience = "admin" }: { audience?: "admin" | "professional" }) {
+function notificationTimeAgo(date: string) {
+  const createdAt = new Date(date).getTime();
+  const difference = Math.max(0, Date.now() - createdAt);
+
+  const minutes = Math.floor(difference / 60_000);
+
+  if (minutes < 1) {
+    return "Agora";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} min atrás`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) {
+    return `${hours}h atrás`;
+  }
+
+  const days = Math.floor(hours / 24);
+
+  if (days === 1) {
+    return "Ontem";
+  }
+
+  if (days < 7) {
+    return `${days} dias atrás`;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(date));
+}
+
+export function NotificationBell({
+  audience = "admin",
+}: {
+  audience?: "admin" | "professional";
+}) {
   const [open, setOpen] = useState(false);
-  const [read, setRead] = useState(false);
-  const items = audience === "admin"
-    ? [
-        ["Novo agendamento confirmado", "Mariana marcou Drenagem Linfática com Eliane para amanhã às 14:00."],
-        ["Pagamento registrado", "Carla pagou R$ 75,00 pelo atendimento com Dayanne."],
-        ["Agenda atualizada", "Dayanne adicionou o serviço Spa dos pés com duração de 60 minutos."],
-      ]
-    : [
-        ["Novo horário na sua agenda", "Mariana marcou um atendimento para amanhã às 14:00."],
-        ["Novo horário na sua agenda", "Fernanda marcou Blindagem para sexta-feira às 16:00."],
-      ];
-  return <div className="notification-center">
-    <button className="notification icon-button" onClick={() => setOpen(!open)} aria-label="Abrir notificações" title="Notificações"><Bell aria-hidden="true" />{!read && <i>{items.length}</i>}</button>
-    {open && <div className="notification-popover">
-      <header><div><span>ATUALIZAÇÕES</span><h3>Notificações</h3></div><button onClick={() => setRead(true)}>Marcar como lidas</button></header>
-      <div className="notification-feed">{items.map((item,index)=><article className={read ? "read" : ""} key={item[0]+index}><span>{index===1?<DollarSign aria-hidden="true" />:<Check aria-hidden="true" />}</span><div><b>{item[0]}</b><p>{item[1]}</p><small>{index===0?"Agora":`${index+1}h atrás`}</small></div></article>)}</div>
-      <footer>As notificações também ficam armazenadas no Supabase.</footer>
-    </div>}
-  </div>;
+  const [items, setItems] = useState<InAppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState("");
+
+  const centerRef = useRef<HTMLDivElement>(null);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const notifications = await getMyInAppNotifications();
+      setItems(notifications);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Não foi possível carregar as notificações.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNotifications();
+
+    const interval = window.setInterval(() => {
+      void loadNotifications();
+    }, 30_000);
+
+    function refreshOnFocus() {
+      void loadNotifications();
+    }
+
+    window.addEventListener("focus", refreshOnFocus);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshOnFocus);
+    };
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (
+        centerRef.current &&
+        !centerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+
+  async function readNotification(notificationId: string) {
+    const currentItem = items.find(
+      (item) => item.id === notificationId,
+    );
+
+    if (!currentItem || currentItem.readAt) {
+      return;
+    }
+
+    const readAt = new Date().toISOString();
+
+    setItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === notificationId
+          ? {
+              ...item,
+              readAt,
+            }
+          : item,
+      ),
+    );
+
+    try {
+      await markNotificationAsRead(notificationId);
+    } catch (readError) {
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === notificationId
+            ? {
+                ...item,
+                readAt: null,
+              }
+            : item,
+        ),
+      );
+
+      setError(
+        readError instanceof Error
+          ? readError.message
+          : "Não foi possível atualizar a notificação.",
+      );
+    }
+  }
+
+  async function readAllNotifications() {
+    const previousItems = items;
+    const readAt = new Date().toISOString();
+
+    setUpdating(true);
+    setError("");
+
+    setItems((currentItems) =>
+      currentItems.map((item) => ({
+        ...item,
+        readAt: item.readAt || readAt,
+      })),
+    );
+
+    try {
+      await markAllNotificationsAsRead();
+    } catch (readError) {
+      setItems(previousItems);
+
+      setError(
+        readError instanceof Error
+          ? readError.message
+          : "Não foi possível atualizar as notificações.",
+      );
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  const unreadCount = items.filter(
+    (item) => !item.readAt,
+  ).length;
+
+  return (
+    <div className="notification-center" ref={centerRef}>
+      <button
+        type="button"
+        className="notification icon-button"
+        onClick={() => {
+          setOpen((currentOpen) => !currentOpen);
+
+          if (!open) {
+            void loadNotifications();
+          }
+        }}
+        aria-label={
+          unreadCount > 0
+            ? `Abrir notificações. ${unreadCount} não lidas.`
+            : "Abrir notificações"
+        }
+        aria-expanded={open}
+        title="Notificações"
+      >
+        <Bell aria-hidden="true" />
+
+        {unreadCount > 0 && (
+          <i>{unreadCount > 99 ? "99+" : unreadCount}</i>
+        )}
+      </button>
+
+      {open && (
+        <div className="notification-popover">
+          <header>
+            <div>
+              <span>ATUALIZAÇÕES</span>
+              <h3>Notificações</h3>
+            </div>
+
+            <div className="notification-header-actions">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  className="notification-read-all"
+                  onClick={() => void readAllNotifications()}
+                  disabled={updating}
+                >
+                  {updating ? "Atualizando..." : "Marcar como lidas"}
+                </button>
+              )}
+
+              <button
+                type="button"
+                className="notification-close icon-button"
+                onClick={() => setOpen(false)}
+                aria-label="Fechar notificações"
+                title="Fechar"
+              >
+                <X aria-hidden="true" />
+              </button>
+            </div>
+          </header>
+
+          <div className="notification-feed">
+            {loading && (
+              <div className="notification-state">
+                Carregando notificações...
+              </div>
+            )}
+
+            {!loading && error && items.length === 0 && (
+              <div className="notification-state notification-state--error">
+                <p>{error}</p>
+
+                <button
+                  type="button"
+                  onClick={() => void loadNotifications()}
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+
+            {!loading && !error && items.length === 0 && (
+              <div className="notification-state">
+                <Bell aria-hidden="true" />
+                <p>Nenhuma notificação por enquanto.</p>
+              </div>
+            )}
+
+            {items.map((item) => {
+              const paymentNotification =
+                item.notificationType ===
+                "admin_payment_confirmed";
+
+              return (
+                <article
+                  className={item.readAt ? "read" : ""}
+                  key={item.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    void readNotification(item.id)
+                  }
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === "Enter" ||
+                      event.key === " "
+                    ) {
+                      event.preventDefault();
+                      void readNotification(item.id);
+                    }
+                  }}
+                >
+                  <span>
+                    {paymentNotification ? (
+                      <DollarSign aria-hidden="true" />
+                    ) : (
+                      <Check aria-hidden="true" />
+                    )}
+                  </span>
+
+                  <div>
+                    <b>{item.title}</b>
+                    <p>{item.body}</p>
+                    <small>
+                      {notificationTimeAgo(item.createdAt)}
+                    </small>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <footer>
+            {audience === "admin"
+              ? "Atualizações administrativas do SPA."
+              : "Atualizações da sua agenda profissional."}
+          </footer>
+        </div>
+      )}
+    </div>
+  );
 }

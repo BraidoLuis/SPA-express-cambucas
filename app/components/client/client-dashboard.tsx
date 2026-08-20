@@ -156,6 +156,7 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
             setSelectedSlot(null);
             setBookingError("");
           }}
+          style={{ display: "flex", alignItems: "center", gap: "4px" }}
         >
           <ArrowLeft aria-hidden="true" /> Voltar para serviços
         </button>
@@ -226,7 +227,6 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
             {slotsError && <div className="slots-feedback error"><span>{slotsError}</span><button onClick={() => setAvailabilityReload((value) => value + 1)}>Tentar novamente</button></div>}
             {!slotsLoading && !slotsError && availableSlots.length === 0 && <div className="slots-feedback">Não há horários livres nesta data. Escolha outro dia.</div>}
             {bookingError && <div className="booking-error">{bookingError}</div>}
-            <div className="duration-allocation"><span>◷</span><div><b>{selected.duration} minutos reservados</b><small>Este serviço ocupará automaticamente {Math.ceil(selected.duration / 60)} bloco(s) consecutivo(s) na agenda de {selected.professional}.</small></div></div>
             <div className="schedule-summary">
               <div>
                 <span>DATA</span>
@@ -317,7 +317,7 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
                 <span>◷ {s.duration} min</span>
                 <b>R$ {s.price},00</b>
               </div>
-              <button onClick={() => setSelected(s)}>
+              <button onClick={() => setSelected(s)} style={{ marginTop: "auto" }}>
                 Ver horários disponíveis →
               </button>
             </div>
@@ -426,7 +426,9 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
               onClick={() => setTab(x)}
               key={x}
             >
-              <TabIcon aria-hidden="true" /> {x}
+              <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <TabIcon aria-hidden="true" /> {x}
+              </span>
             </button>
           ))}
         </nav>
@@ -457,7 +459,7 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
             </p>
           </div>
           {tab !== "Serviços" && (
-            <button className="primary" onClick={goServices}>
+            <button className="primary" style={{ display: "flex", alignItems: "center", gap: "4px" }} onClick={goServices}>
               <Plus aria-hidden="true" /> Agendar um serviço
             </button>
           )}

@@ -4,9 +4,66 @@ import { services as fallbackServices, type Service } from "../../lib/spa-data";
 import { getClientCatalog } from "../../lib/services/catalog-service";
 import { Icon, Logo, ThemeToggle } from "../shared/spa-ui";
 import { ServiceCoverImage } from "../shared/service-cover-image";
-import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Menu } from "lucide-react";
+import {
+  ArrowRight,
+  BriefcaseBusiness,
+  Camera,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Mail,
+  MapPin,
+  Menu,
+  MessageCircle,
+  Phone,
+} from "lucide-react";
+import {
+  getPublicSpaSettings,
+  type PublicSpaSettings,
+} from "../../lib/services/public-settings-service";
 import { ShowcaseCarousel } from "../shared/showcase-carousel";
 import { ProfessionalFilter } from "../shared/professional-filter";
+
+const weekdayNames: Record<string, string> = {
+  "0": "Dom",
+  "1": "Seg",
+  "2": "Ter",
+  "3": "Qua",
+  "4": "Qui",
+  "5": "Sex",
+  "6": "Sáb",
+};
+
+function formatBusinessHours(
+  businessHours?: PublicSpaSettings["businessHours"],
+) {
+  if (!businessHours) {
+    return ["Horários conforme disponibilidade"];
+  }
+
+  const openDays = Object.entries(businessHours)
+    .filter(([, day]) => Boolean(day?.open))
+    .map(([index, day]) => {
+      const start = day.start?.slice(0, 5);
+      const end = day.end?.slice(0, 5);
+
+      return {
+        index,
+        label: weekdayNames[index],
+        hours:
+          start && end
+            ? `${start} às ${end}`
+            : "Horário sob consulta",
+      };
+    });
+
+  if (openDays.length === 0) {
+    return ["Horários sob consulta"];
+  }
+
+  return openDays.map((day) => `${day.label}: ${day.hours}`);
+}
+
 export function PublicSite({
   openBooking,
   goAdmin,
@@ -20,11 +77,29 @@ export function PublicSite({
   const [aboutSlide, setAboutSlide] = useState(0);
   const homeCarousel = useRef<HTMLDivElement>(null);
   const [catalog, setCatalog] = useState<Service[]>(fallbackServices);
+  const [publicSettings, setPublicSettings] =
+  useState<PublicSpaSettings | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    getPublicSpaSettings().then((settings) => {
+      if (active) {
+        setPublicSettings(settings);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     let active = true;
     getClientCatalog().then((items) => { if (active && items.length) setCatalog(items); }).catch(() => undefined);
     return () => { active = false; };
   }, []);
+
   useEffect(() => {
     const sections = document.querySelectorAll<HTMLElement>(".public-site main > section, .public-site > .location-section");
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -38,6 +113,7 @@ export function PublicSite({
     sections.forEach((section) => observer.observe(section));
     return () => observer.disconnect();
   }, []);
+
   const serviceFilters = useMemo(() => ["Todos", ...new Set(catalog.map((item) => item.category))], [catalog]);
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((item) => item.professionalId).map((item) => [item.professionalId!, { id: item.professionalId!, name: item.professionalFullName || item.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
   const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional));
@@ -47,6 +123,20 @@ export function PublicSite({
       left: direction * homeCarousel.current.clientWidth * 0.82,
       behavior: "smooth",
     });
+  const business = publicSettings?.business;
+
+  const phoneHref = business?.phone
+    ? `tel:${business.phone.replace(/[^\d+]/g, "")}`
+    : "";
+
+  const emailHref = business?.email
+    ? `mailto:${business.email}`
+    : "";
+
+  const linkedinUrl = "https://www.linkedin.com/in/luís-felipe-dos-santos-braido-857a28352";
+  const formattedBusinessHours = formatBusinessHours(
+    publicSettings?.businessHours,
+  );
 
   return (
     <div className="public-site">
@@ -351,29 +441,103 @@ export function PublicSite({
         <div className="footer-top">
           <div>
             <Logo />
-            <p>Beleza, cuidado e bem-estar em cada atendimento.</p>
-            <div className="socials">
-              <span>◎</span>
-              <span>◉</span>
-              <span>◌</span>
+
+            <p>
+              {business?.description ||
+                "Beleza, cuidado e bem-estar em cada atendimento."}
+            </p>
+
+            <div className="socials" aria-label="Redes sociais e contato">
+              {business?.instagramUrl && (
+                <a
+                  href={business.instagramUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram do SPA Express Cambucás"
+                  title="Instagram"
+                >
+                  <Camera aria-hidden="true" />
+                </a>
+              )}
+
+              {business?.whatsappUrl && (
+                <a
+                  href={business.whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="WhatsApp do SPA Express Cambucás"
+                  title="WhatsApp"
+                >
+                  <MessageCircle aria-hidden="true" />
+                </a>
+              )}
+
+              {business?.email && (
+                <a
+                  href={emailHref}
+                  aria-label="Enviar e-mail para o SPA Express Cambucás"
+                  title="E-mail"
+                >
+                  <Mail aria-hidden="true" />
+                </a>
+              )}
             </div>
           </div>
+
           <div>
             <h4>Navegue</h4>
             <a href="#sobre">Sobre nós</a>
             <a href="#servicos">Serviços</a>
             <a href="#localizacao">Localização</a>
-            <button onClick={() => openBooking()}>Agendamento</button>
+            <button type="button" onClick={() => openBooking()}>
+              Agendamento
+            </button>
           </div>
+
           <div>
             <h4>Contato</h4>
-            <p>☎ (21) 99999-0000</p>
-            <p>✉ contato@spaexpress.com.br</p>
-            <p>◷ Seg–Sáb, 9h às 19h</p>
+
+            {business?.phone && (
+              <a className="footer-contact-item" href={phoneHref}>
+                <Phone aria-hidden="true" />
+                <span>{business.phone}</span>
+              </a>
+            )}
+
+            {business?.email && (
+              <a className="footer-contact-item" href={emailHref}>
+                <Mail aria-hidden="true" />
+                <span>{business.email}</span>
+              </a>
+            )}
+
+            <div className="footer-contact-item footer-business-hours">
+              <Clock3 aria-hidden="true" />
+
+              <div style={{ fontSize: "12px", color: "#b9aeb7" }}>
+                {formattedBusinessHours.map((hours) => (
+                  <span key={hours}>{hours}</span>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
+
         <div className="copyright">
-          © 2026 Spa Express Cambucás <span>Privacidade · Termos</span>
+          <span>
+            © {new Date().getFullYear()}{" "}
+            {business?.name || "SPA Express Cambucás"}
+          </span>
+
+          <a
+            href={linkedinUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="footer-creator"
+          >
+            <BriefcaseBusiness aria-hidden="true" />
+            <span>Criado por Luis Braido</span>
+          </a>
         </div>
       </footer>
     </div>

@@ -1,5 +1,9 @@
 import { createClient } from "../../../lib/supabase/client";
 
+import {
+  validateServiceDuration,
+} from "../validations/service-duration";
+
 export type ProfessionalService = {
   id: string;
   name: string;
@@ -75,6 +79,8 @@ export async function getProfessionalServices(
 export async function createProfessionalService(
   input: CreateProfessionalServiceInput,
 ): Promise<string> {
+  validateServiceDuration(input.duration);
+
   const { data, error } = await createClient().rpc(
     "create_professional_service",
     {
@@ -101,6 +107,8 @@ export async function updateProfessionalService(
     active: boolean;
   },
 ) {
+  validateServiceDuration(changes.duration);
+
   const { error } = await createClient()
     .from("professional_services")
     .update({

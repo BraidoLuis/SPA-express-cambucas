@@ -13,6 +13,10 @@ import { ServiceCoverImage } from "../shared/service-cover-image";
 import { ServiceCoverEditor } from "../shared/service-cover-editor";
 import { applyServiceCoverChange, type CoverImageChange } from "../../lib/services/service-cover-image-service";
 import { Pencil, Plus, X } from "lucide-react";
+import {
+  isValidServiceDuration,
+  MIN_SERVICE_DURATION_MINUTES,
+} from "../../lib/validations/service-duration";
 
 type LinkDraft = {
   selected: boolean;
@@ -180,7 +184,11 @@ export function AdminServicesSection({ createRequest = 0 }: { createRequest?: nu
 
     if (!draft.name.trim()) return setFormError("Informe o nome do serviço.");
     if (!draft.category.trim()) return setFormError("Informe a categoria do serviço.");
-    if (!Number.isInteger(duration) || duration <= 0) return setFormError("A duração deve ser um número inteiro positivo.");
+    if (!isValidServiceDuration(duration)) {
+      return setFormError(
+        `A duração mínima do serviço é de ${MIN_SERVICE_DURATION_MINUTES} minutos.`,
+      );
+    }
     if (!Number.isFinite(price) || price < 0) return setFormError("O valor deve ser igual ou maior que zero.");
     if (selected.length === 0) return setFormError("Vincule pelo menos uma profissional.");
 
@@ -192,8 +200,10 @@ export function AdminServicesSection({ createRequest = 0 }: { createRequest?: nu
       if (link.customValues) {
         customDuration = Number(link.customDuration);
         customPrice = Number(link.customPrice.replace(",", "."));
-        if (!Number.isInteger(customDuration) || customDuration <= 0) {
-          return setFormError(`Informe uma duração personalizada válida para ${item.name}.`);
+        if (!isValidServiceDuration(customDuration)) {
+          return setFormError(
+            `A duração personalizada de ${item.name} deve ser de pelo menos ${MIN_SERVICE_DURATION_MINUTES} minutos.`,
+          );
         }
         if (!Number.isFinite(customPrice) || customPrice < 0) {
           return setFormError(`Informe um preço personalizado válido para ${item.name}.`);
@@ -310,11 +320,11 @@ export function AdminServicesSection({ createRequest = 0 }: { createRequest?: nu
               <label><span>Nome *</span><input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} disabled={saving} /></label>
               <label><span>Categoria *</span><input value={draft.category} onChange={(event) => setDraft({ ...draft, category: event.target.value })} list="admin-service-categories" disabled={saving} /><datalist id="admin-service-categories">{categories.map((item) => <option key={item} value={item} />)}</datalist></label>
               <label className="wide"><span>Descrição</span><textarea value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} disabled={saving} /></label>
-              <label><span>Duração base (minutos) *</span><input type="number" min="1" step="1" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: event.target.value })} disabled={saving} /></label>
+              <label><span>Duração base (minutos) *</span><input type="number" min={MIN_SERVICE_DURATION_MINUTES} step="1" value={draft.duration} onChange={(event) => setDraft({ ...draft, duration: event.target.value })} disabled={saving} /></label>
               <label><span>Preço base (R$) *</span><input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={saving} /></label>
             </div>
             <ServiceCoverEditor key={editing?.id || "new-service"} currentUrl={editing?.imageUrl} serviceName={draft.name || "serviço"} disabled={saving} onChange={setCoverChange} onError={setFormError} />
-            <fieldset className="admin-service-links"><legend>Profissionais vinculadas *</legend>{professionals.map((item) => { const link = draft.links[item.id] || { selected: false, customValues: false, customDuration: draft.duration, customPrice: draft.price }; return <div className="admin-service-link" key={item.id}><label className="admin-service-check"><input type="checkbox" checked={link.selected} onChange={(event) => updateLink(item.id, { selected: event.target.checked })} disabled={saving || !item.active} /><span>{item.name}{!item.active ? " (inativa)" : ""}</span></label>{link.selected && <><label className="admin-service-check custom"><input type="checkbox" checked={link.customValues} onChange={(event) => updateLink(item.id, { customValues: event.target.checked })} disabled={saving} /><span>Usar preço ou duração personalizados</span></label>{link.customValues && <div className="admin-service-custom-values"><label><span>Duração</span><input type="number" min="1" step="1" value={link.customDuration} onChange={(event) => updateLink(item.id, { customDuration: event.target.value })} disabled={saving} /></label><label><span>Preço</span><input type="number" min="0" step="0.01" value={link.customPrice} onChange={(event) => updateLink(item.id, { customPrice: event.target.value })} disabled={saving} /></label></div>}</>}</div>; })}</fieldset>
+            <fieldset className="admin-service-links"><legend>Profissionais vinculadas *</legend>{professionals.map((item) => { const link = draft.links[item.id] || { selected: false, customValues: false, customDuration: draft.duration, customPrice: draft.price }; return <div className="admin-service-link" key={item.id}><label className="admin-service-check"><input type="checkbox" checked={link.selected} onChange={(event) => updateLink(item.id, { selected: event.target.checked })} disabled={saving || !item.active} /><span>{item.name}{!item.active ? " (inativa)" : ""}</span></label>{link.selected && <><label className="admin-service-check custom"><input type="checkbox" checked={link.customValues} onChange={(event) => updateLink(item.id, { customValues: event.target.checked })} disabled={saving} /><span>Usar preço ou duração personalizados</span></label>{link.customValues && <div className="admin-service-custom-values"><label><span>Duração</span><input type="number" min={MIN_SERVICE_DURATION_MINUTES} step="1" value={link.customDuration} onChange={(event) => updateLink(item.id, { customDuration: event.target.value })} disabled={saving} /></label><label><span>Preço</span><input type="number" min="0" step="0.01" value={link.customPrice} onChange={(event) => updateLink(item.id, { customPrice: event.target.value })} disabled={saving} /></label></div>}</>}</div>; })}</fieldset>
             {professionals.length === 0 && <p className="form-error">Nenhuma profissional foi encontrada no Supabase.</p>}
             {formError && <p className="form-error">{formError}</p>}
             <div className="admin-service-form-actions"><button type="button" disabled={saving} onClick={() => setFormOpen(false)}>Cancelar</button><button className="primary" type="submit" disabled={saving || professionals.length === 0}>{saving ? "Salvando..." : "Salvar serviço"}</button></div>
