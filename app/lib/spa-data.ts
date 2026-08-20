@@ -2,6 +2,7 @@ export type Service = {
   id?: string;
   slug?: string;
   professionalId?: string;
+  professionalWhatsapp?: string;
   name: string;
   category: string;
   description?: string;

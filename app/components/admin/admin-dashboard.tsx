@@ -24,7 +24,9 @@ import { AdminAppointmentForm } from "./admin-appointment-form";
 import { AdminScheduleBlockForm } from "./admin-schedule-block-form";
 import type { AdminAppointmentClient } from "../../lib/services/admin-appointment-service";
 import { AdminSettingsSection } from "./admin-settings-section";
-
+import {
+  AdminDayAgendaDialog,
+} from "./admin-day-agenda-dialog";
 function AdminContent({
   section,
   filter,
@@ -497,7 +499,10 @@ function AdminMonthlyCalendar({
 }) {
   const year = date.getFullYear();
   const month = date.getMonth();
-
+  const [selectedDay, setSelectedDay] = useState<{
+    date: Date;
+    items: AdminCalendarItem[];
+  } | null>(null);
   const firstWeekday = new Date(
     year,
     month,
@@ -630,6 +635,26 @@ function AdminMonthlyCalendar({
     ]
       .filter(Boolean)
       .join(" ");
+  }
+
+  function orderDayItems(
+    dayItems: AdminCalendarItem[],
+  ) {
+    return [...dayItems].sort((first, second) => {
+      const firstCancelled =
+        first.status === "cancelled" ? 1 : 0;
+      const secondCancelled =
+        second.status === "cancelled" ? 1 : 0;
+
+      if (firstCancelled !== secondCancelled) {
+        return firstCancelled - secondCancelled;
+      }
+
+      return (
+        new Date(first.startAt).getTime() -
+        new Date(second.startAt).getTime()
+      );
+    });
   }
 
   const monthInputValue = [
@@ -765,6 +790,15 @@ function AdminMonthlyCalendar({
               )
             : [];
 
+          const orderedCellItems =
+            orderDayItems(cellItems);
+
+          const previewItems =
+            orderedCellItems.slice(0, 2);
+
+          const hiddenItems =
+            Math.max(orderedCellItems.length - 2, 0);
+
           const isToday = sameDay(
             cell.date,
             new Date(),
@@ -794,7 +828,7 @@ function AdminMonthlyCalendar({
               </header>
 
               <div className="admin-calendar-day-items">
-                {cellItems.map((item) => (
+                {previewItems.map((item) => (
                   <div
                     className={itemClass(item)}
                     key={`${item.type}-${item.id}`}
@@ -842,6 +876,26 @@ function AdminMonthlyCalendar({
                   </div>
                 ))}
               </div>
+              {cell.currentMonth &&
+              orderedCellItems.length > 0 && (
+                <button
+                  type="button"
+                  className="admin-calendar-day-open"
+                  onClick={() =>
+                    setSelectedDay({
+                      date: cell.date,
+                      items: orderedCellItems,
+                    })
+                  }
+                  aria-label={`Abrir agenda de ${cell.date.toLocaleDateString(
+                    "pt-BR",
+                  )}`}
+                >
+                  {hiddenItems > 0
+                    ? `Ver agenda completa +${hiddenItems}`
+                    : "Ver detalhes do dia"}
+                </button>
+              )}
             </article>
           );
         })}
@@ -880,6 +934,12 @@ function AdminMonthlyCalendar({
           Cancelado
         </span>
       </div>
+      <AdminDayAgendaDialog
+        open={selectedDay !== null}
+        date={selectedDay?.date || null}
+        items={selectedDay?.items || []}
+        onClose={() => setSelectedDay(null)}
+      />
     </div>
   );
 }

@@ -572,17 +572,6 @@ img {
   justify-content: center;
 }
 
-.hero-visual:before {
-  content: "";
-  position: absolute;
-  width: 520px;
-  height: 620px;
-  bottom: -70px;
-  border-radius: 48% 48% 12% 12%;
-  background: linear-gradient(#d6a5d4, #b77bc0);
-  transform: rotate(4deg);
-}
-
 .hero-visual img {
   height: 650px;
   width: auto;
@@ -1417,7 +1406,7 @@ footer {
   background: #f7edf6;
   border-radius: 14px;
   padding: 14px;
-  display: flex;
+  display: none !important;
   flex-direction: column;
 }
 
@@ -1439,7 +1428,7 @@ footer {
 }
 
 .view-site {
-  margin-top: 9px;
+  margin-top: auto !important;
   border: 0;
   background: none;
   color: var(--plum);
@@ -1448,6 +1437,9 @@ footer {
   padding: 9px;
 }
 
+.view-site.logout {
+  margin-top: 6px !important;
+}
 .admin-main {
   padding: 30px 38px;
   min-width: 0;
@@ -2095,11 +2087,6 @@ footer {
   .hero-visual {
     height: 400px;
     margin-top: 20px;
-  }
-
-  .hero-visual:before {
-    width: 340px;
-    height: 380px;
   }
 
   .hero-visual img {
@@ -12619,6 +12606,694 @@ html {
 
   .notification-reminder-input input {
     flex: 1;
+    width: 100%;
+  }
+}
+
+/* Agenda administrativa resumida por dia */
+
+.admin-calendar-day {
+  display: flex;
+  min-height: 250px;
+  height: 250px;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.admin-calendar-day-items {
+  align-content: start;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.admin-calendar-day-open {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--plum);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.admin-calendar-day-open:hover {
+  border-color: var(--plum);
+  background: #f2e2ef;
+  transform: translateY(-1px);
+}
+
+.admin-calendar-day-open:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}
+
+/* Popup da agenda do dia */
+
+.admin-day-agenda-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(34 20 31 / 68%);
+  backdrop-filter: blur(4px);
+}
+
+.admin-day-agenda-dialog {
+  display: flex;
+  width: min(760px, 100%);
+  max-height: min(820px, 88dvh);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--lilac);
+  box-shadow: 0 24px 80px rgb(34 20 31 / 28%);
+  color: var(--text);
+}
+
+.admin-day-agenda-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-day-agenda-header h2 {
+  margin: 5px 0;
+  color: var(--plum);
+  font-size: 22px;
+  text-transform: capitalize;
+}
+
+.admin-day-agenda-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.admin-day-agenda-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-day-agenda-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.admin-day-agenda-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.admin-day-agenda-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.admin-day-agenda-summary svg {
+  width: 14px;
+  height: 14px;
+  color: var(--plum);
+}
+
+.admin-day-agenda-summary b {
+  color: var(--text);
+}
+
+.admin-day-agenda-list {
+  display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  gap: 10px;
+  min-height: 0;
+  max-height: calc(88dvh - 210px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 18px 24px 24px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.admin-day-agenda-item {
+  display: grid;
+  grid-template-columns: 105px minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--plum);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.admin-day-agenda-item.dayanne {
+  border-left-color: #b86bac;
+}
+
+.admin-day-agenda-item.outside {
+  border-left-color: #d99530;
+}
+
+.admin-day-agenda-item.block {
+  border-left-color: #777;
+}
+
+.admin-day-agenda-item.cancelled {
+  border-left-color: #c14a5a;
+  background: #fbe8eb;
+  opacity: 0.78;
+}
+
+.admin-day-agenda-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 10px;
+  border-right: 1px solid var(--line);
+  background: var(--soft);
+  text-align: center;
+}
+
+.admin-day-agenda-time b {
+  color: var(--plum);
+  font-size: 17px;
+}
+
+.admin-day-agenda-time span,
+.admin-day-agenda-time small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.admin-day-agenda-content {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+}
+
+.admin-day-agenda-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-day-agenda-title > div {
+  min-width: 0;
+}
+
+.admin-day-agenda-title h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.admin-day-agenda-title em {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #fff0d7;
+  color: #764910;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.admin-day-agenda-status {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.admin-day-agenda-status.confirmed,
+.admin-day-agenda-status.completed {
+  background: #e4f4e9;
+  color: #27683d;
+}
+
+.admin-day-agenda-status.cancelled,
+.admin-day-agenda-status.no_show {
+  background: #fbe8eb;
+  color: #963343;
+}
+
+.admin-day-agenda-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-day-agenda-person svg {
+  width: 17px;
+  height: 17px;
+  color: var(--plum);
+}
+
+.admin-day-agenda-person div {
+  display: grid;
+  gap: 2px;
+}
+
+.admin-day-agenda-person small {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.admin-day-agenda-person b {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.admin-day-agenda-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.admin-day-agenda-meta span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.admin-day-agenda-meta b {
+  color: var(--text);
+}
+
+.admin-day-agenda-item.block
+  .admin-day-agenda-content
+  > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* Tema escuro */
+
+.dark-theme .admin-calendar-day-open,
+.dark-theme .admin-day-agenda-dialog,
+.dark-theme .admin-day-agenda-close,
+.dark-theme .admin-day-agenda-item,
+.dark-theme .admin-day-agenda-summary span {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-2);
+  color: var(--dark-text);
+}
+
+.dark-theme .admin-calendar-day-open {
+  color: #f4dcec;
+}
+
+.dark-theme .admin-calendar-day-open:hover {
+  border-color: #c786b9;
+  background: #54304f;
+}
+
+.dark-theme .admin-day-agenda-header,
+.dark-theme .admin-day-agenda-summary,
+.dark-theme .admin-day-agenda-time {
+  border-color: var(--dark-border);
+}
+
+.dark-theme .admin-day-agenda-summary,
+.dark-theme .admin-day-agenda-time {
+  background: var(--dark-surface-3);
+}
+
+.dark-theme .admin-day-agenda-header h2,
+.dark-theme .admin-day-agenda-time b,
+.dark-theme .admin-day-agenda-person svg {
+  color: #f4dcec;
+}
+
+.dark-theme .admin-day-agenda-header p,
+.dark-theme .admin-day-agenda-summary span,
+.dark-theme .admin-day-agenda-time span,
+.dark-theme .admin-day-agenda-time small,
+.dark-theme .admin-day-agenda-meta span,
+.dark-theme .admin-day-agenda-item.block
+  .admin-day-agenda-content
+  > p {
+  color: var(--dark-muted);
+}
+
+.dark-theme .admin-day-agenda-title h3,
+.dark-theme .admin-day-agenda-person b,
+.dark-theme .admin-day-agenda-meta b,
+.dark-theme .admin-day-agenda-summary b {
+  color: var(--dark-text);
+}
+
+.dark-theme .admin-day-agenda-item.cancelled {
+  background: #542c34;
+}
+
+@media (max-width: 720px) {
+  .admin-day-agenda-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .admin-day-agenda-dialog {
+    width: 100%;
+    max-height: 94dvh;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .admin-day-agenda-header {
+    padding: 18px 16px 14px;
+  }
+
+  .admin-day-agenda-header h2 {
+    font-size: 18px;
+  }
+
+  .admin-day-agenda-summary {
+    padding: 12px 16px;
+  }
+
+  .admin-day-agenda-list {
+    padding: 14px 16px 24px;
+  }
+
+  .admin-day-agenda-item {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+
+  .admin-day-agenda-time b {
+    font-size: 14px;
+  }
+
+  .admin-day-agenda-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.admin-day-agenda-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-day-agenda-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-day-agenda-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgb(93 23 79 / 35%);
+  background-clip: padding-box;
+}
+
+.admin-day-agenda-list::-webkit-scrollbar-thumb:hover {
+  background: rgb(93 23 79 / 55%);
+  background-clip: padding-box;
+}
+
+.dark-theme
+  .admin-day-agenda-list::-webkit-scrollbar-thumb {
+  background: rgb(244 220 236 / 28%);
+  background-clip: padding-box;
+}
+
+/* Agenda diária da profissional */
+
+.professional-month-calendar
+  > article.professional-calendar-day {
+  display: flex;
+  height: 250px;
+  min-height: 250px;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.professional-calendar-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.professional-calendar-day-header > strong {
+  margin: 0;
+}
+
+.professional-calendar-day-header > small {
+  display: grid;
+  min-width: 23px;
+  height: 23px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--soft);
+  color: var(--plum);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.professional-calendar-preview {
+  display: grid;
+  align-content: start;
+  flex: 1;
+  gap: 5px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.professional-calendar-preview
+  .calendar-booking,
+.professional-calendar-preview
+  .calendar-block {
+  margin-top: 0;
+}
+
+.professional-calendar-preview
+  .calendar-booking.cancelled {
+  border-left-color: #c14a5a;
+  background: #fbe8eb;
+  color: #963343;
+  opacity: 0.72;
+  text-decoration: line-through;
+}
+
+.professional-calendar-day-open {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--soft);
+  color: var(--plum);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.professional-calendar-day-open:hover {
+  border-color: var(--plum);
+  background: #f2e2ef;
+}
+
+/*
+ * O popup da profissional fica abaixo dos ActionDialog,
+ * cujo z-index atual é 500.
+ */
+.professional-day-agenda-backdrop {
+  z-index: 400;
+}
+
+.professional-day-agenda-item {
+  min-height: 0;
+}
+
+.professional-day-agenda-item.outside {
+  border-left-color: #d99530;
+}
+
+.professional-day-agenda-item.block {
+  border-left-color: #777;
+}
+
+.professional-day-agenda-item.cancelled {
+  border-left-color: #c14a5a;
+  background: #fbe8eb;
+  opacity: 0.78;
+}
+
+.professional-day-agenda-item
+  .professional-appointment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.professional-day-agenda-item
+  .professional-appointment-actions
+  button,
+.professional-day-block-actions button {
+  min-height: 36px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--plum);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.professional-day-agenda-item
+  .professional-appointment-actions
+  button.complete {
+  border-color: #b8dfca;
+  background: #e6f5ed;
+  color: #287253;
+}
+
+.professional-day-agenda-item
+  .professional-appointment-actions
+  button.cancel {
+  border-color: #efbcc7;
+  color: #a82d46;
+}
+
+.professional-day-block-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Impede que o formulário fique fixo fora do popup */
+
+.professional-day-agenda-item
+  .appointment-completion-form {
+  position: static !important;
+  z-index: auto !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 12px !important;
+  width: 100% !important;
+  max-height: none !important;
+  margin: 5px 0 0 !important;
+  padding: 15px !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+
+.professional-day-agenda-item
+  .appointment-completion-form
+  > strong,
+.professional-day-agenda-item
+  .appointment-completion-form
+  .payment-received-check,
+.professional-day-agenda-item
+  .appointment-completion-form
+  > div {
+  grid-column: 1 / -1 !important;
+}
+
+/* Tema escuro */
+
+.dark-theme
+  .professional-calendar-day-header
+  > small,
+.dark-theme
+  .professional-calendar-day-open {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-3);
+  color: #f4dcec;
+}
+
+.dark-theme
+  .professional-calendar-day-open:hover {
+  border-color: #c786b9;
+  background: #54304f;
+}
+
+.dark-theme
+  .professional-calendar-preview
+  .calendar-booking.cancelled,
+.dark-theme
+  .professional-day-agenda-item.cancelled {
+  background: #542c34;
+  color: #ffc3cd;
+}
+
+.dark-theme
+  .professional-day-agenda-item
+  .professional-appointment-actions
+  button,
+.dark-theme
+  .professional-day-block-actions
+  button {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-3);
+  color: var(--dark-text);
+}
+
+@media (max-width: 720px) {
+  .professional-day-agenda-item
+    .appointment-completion-form {
+    grid-template-columns: 1fr !important;
+  }
+
+  .professional-day-agenda-item
+    .appointment-completion-form
+    > * {
+    grid-column: 1 !important;
+  }
+
+  .professional-day-agenda-item
+    .professional-appointment-actions {
+    flex-direction: column;
+  }
+
+  .professional-day-agenda-item
+    .professional-appointment-actions
+    button,
+  .professional-day-block-actions button {
     width: 100%;
   }
 }

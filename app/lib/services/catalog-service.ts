@@ -18,6 +18,7 @@ type CatalogRow = {
     id: string;
     display_name: string;
     specialty: string;
+    whatsapp_number: string | null;
   };
 };
 
@@ -28,7 +29,7 @@ export async function getClientCatalog(): Promise<Service[]> {
       custom_duration_minutes,
       custom_price,
       services!inner(id,name,slug,category,description,duration_minutes,price,image_url,active),
-      professionals!inner(id,display_name,specialty,active)
+      professionals!inner(id,display_name,specialty,whatsapp_number,active)
     `)
     .eq("active", true)
     .eq("services.active", true)
@@ -41,13 +42,23 @@ export async function getClientCatalog(): Promise<Service[]> {
       id: row.services.id,
       slug: row.services.slug,
       professionalId: row.professionals.id,
+      professionalWhatsapp:
+        row.professionals.whatsapp_number || undefined,
       name: row.services.name,
       category: row.services.category,
-      description: row.services.description || "Atendimento personalizado, realizado com cuidado e atenção.",
-      duration: row.custom_duration_minutes ?? row.services.duration_minutes,
-      price: Number(row.custom_price ?? row.services.price),
-      professional: row.professionals.display_name.split(" ")[0],
-      professionalFullName: row.professionals.display_name,
+      description:
+        row.services.description ||
+        "Atendimento personalizado, realizado com cuidado e atenção.",
+      duration:
+        row.custom_duration_minutes ??
+        row.services.duration_minutes,
+      price: Number(
+        row.custom_price ?? row.services.price,
+      ),
+      professional:
+        row.professionals.display_name.split(" ")[0],
+      professionalFullName:
+        row.professionals.display_name,
       specialty: row.professionals.specialty,
       image: row.services.image_url || undefined,
     }))

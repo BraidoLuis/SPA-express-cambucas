@@ -43,6 +43,9 @@ import {
   type ProfessionalScheduleBlock,
 } from "../../lib/services/professional-schedule-block-service";
 import {
+  ProfessionalDayAgendaDialog,
+} from "./professional-day-agenda-dialog";
+import {
   BOOKING_START_INTERVAL_MINUTES,
 } from "../../lib/booking-grid";
 import { Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
@@ -97,6 +100,10 @@ export function ProfessionalDashboard({
   const [section, setSection] = useState("Meu dia");
   const today = new Date();
   const [agendaMonth, setAgendaMonth] = useState(monthKey(today));
+  const [
+    selectedAgendaDate,
+    setSelectedAgendaDate,
+  ] = useState<string | null>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [showExtraForm, setShowExtraForm] = useState(false);
   const [extraServiceId, setExtraServiceId] = useState("");
@@ -206,6 +213,23 @@ export function ProfessionalDashboard({
   const menu = ["Meu dia", "Minha agenda", "Meus serviços", "Disponibilidade", "Notificações"];
   const menuIcons = [Home, CalendarDays, Sparkles, Clock, Bell];
   const todayKey = localDateKey(today);
+  const selectedDayAppointments =
+    selectedAgendaDate
+      ? monthAppointments.filter(
+          (item) =>
+            localDateKey(new Date(item.start)) ===
+            selectedAgendaDate,
+        )
+      : [];
+
+  const selectedDayScheduleBlocks =
+    selectedAgendaDate
+      ? scheduleBlocks.filter(
+          (block) =>
+            localDateKey(new Date(block.start)) ===
+            selectedAgendaDate,
+        )
+      : [];
 
   const activeTodayAppointments =
     todayAppointments.filter(
@@ -1461,70 +1485,164 @@ function completionForm(
               ).map((day) => {
                 const date = `${agendaMonth}-${pad(day)}`;
 
-                const dayScheduleBlocks = scheduleBlocks.filter(
-                  (block) =>
-                    localDateKey(new Date(block.start)) === date,
+                const dayScheduleBlocks =
+                  scheduleBlocks.filter(
+                    (block) =>
+                      localDateKey(new Date(block.start)) ===
+                      date,
+                  );
+
+                const dayAppointments =
+                  monthAppointments
+                    .filter(
+                      (item) =>
+                        localDateKey(new Date(item.start)) ===
+                        date,
+                    )
+                    .sort((first, second) => {
+                      const firstCancelled =
+                        first.status === "cancelled" ? 1 : 0;
+                      const secondCancelled =
+                        second.status === "cancelled" ? 1 : 0;
+
+                      if (
+                        firstCancelled !== secondCancelled
+                      ) {
+                        return (
+                          firstCancelled - secondCancelled
+                        );
+                      }
+
+                      return (
+                        new Date(first.start).getTime() -
+                        new Date(second.start).getTime()
+                      );
+                    });
+
+                const dayEntries = [
+                  ...dayAppointments.map((item) => ({
+                    type: "appointment" as const,
+                    start: item.start,
+                    appointment: item,
+                    block: null,
+                  })),
+                  ...dayScheduleBlocks.map((block) => ({
+                    type: "block" as const,
+                    start: block.start,
+                    appointment: null,
+                    block,
+                  })),
+                ].sort(
+                  (first, second) =>
+                    new Date(first.start).getTime() -
+                    new Date(second.start).getTime(),
                 );
 
-                const dayAppointments = monthAppointments.filter(
-                  (item) =>
-                    localDateKey(new Date(item.start)) === date &&
-                    item.status !== "cancelled",
+                const previewEntries = dayEntries.slice(0, 2);
+                const hiddenEntries = Math.max(
+                  dayEntries.length - 2,
+                  0,
                 );
 
                 return (
                   <article
                     key={day}
-                    className={date < todayKey ? "past" : ""}
+                    className={[
+                      date < todayKey ? "past" : "",
+                      "professional-calendar-day",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
                   >
-                    <strong>{day}</strong>
+                    <header className="professional-calendar-day-header">
+                      <strong>{day}</strong>
 
-                    {dayAppointments.map((item) => (
-                      <div
-                        className={`calendar-booking ${
-                          item.outsideSchedule ? "extra" : ""
-                        }`}
-                        key={item.id}
+                      {dayEntries.length > 0 && (
+                        <small>{dayEntries.length}</small>
+                      )}
+                    </header>
+
+                    <div className="professional-calendar-preview">
+                      {previewEntries.map((entry) => {
+                        if (
+                          entry.type === "appointment" &&
+                          entry.appointment
+                        ) {
+                          const item = entry.appointment;
+
+                          return (
+                            <div
+                              className={[
+                                "calendar-booking",
+                                item.outsideSchedule
+                                  ? "extra"
+                                  : "",
+                                item.status === "cancelled"
+                                  ? "cancelled"
+                                  : "",
+                              ]
+                                .filter(Boolean)
+                                .join(" ")}
+                              key={item.id}
+                            >
+                              <b>
+                                {appointmentTime(item.start)}
+                                {item.outsideSchedule
+                                  ? " · encaixe"
+                                  : ""}
+                              </b>
+
+                              <span>{item.serviceName}</span>
+
+                              <small>
+                                {item.clientName} ·{" "}
+                                {item.duration} min
+                              </small>
+                            </div>
+                          );
+                        }
+
+                        if (entry.block) {
+                          return (
+                            <div
+                              className="calendar-block real"
+                              key={entry.block.id}
+                            >
+                              <b>
+                                {appointmentTime(
+                                  entry.block.start,
+                                )}{" "}
+                                até{" "}
+                                {appointmentTime(
+                                  entry.block.end,
+                                )}
+                              </b>
+
+                              <span>
+                                {entry.block.reason ||
+                                  "Horário bloqueado"}
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return null;
+                      })}
+                    </div>
+
+                    {dayEntries.length > 0 && (
+                      <button
+                        type="button"
+                        className="professional-calendar-day-open"
+                        onClick={() =>
+                          setSelectedAgendaDate(date)
+                        }
                       >
-                        <b>
-                          {appointmentTime(item.start)}
-                          {item.outsideSchedule ? " · encaixe" : ""}
-                        </b>
-
-                        <span>{item.serviceName}</span>
-
-                        <small>
-                          {item.clientName} · {item.duration} min
-                        </small>
-
-                        {appointmentActions(item)}
-                        {completionForm(item)}
-                      </div>
-                    ))}
-
-                    {dayScheduleBlocks.map((block) => (
-                      <div
-                        className="calendar-block real"
-                        key={block.id}
-                      >
-                        <b>
-                          {appointmentTime(block.start)} até{" "}
-                          {appointmentTime(block.end)}
-                        </b>
-
-                        <span>
-                          {block.reason || "Horário bloqueado"}
-                        </span>
-
-                        <button
-                          type="button"
-                          disabled={scheduleBlockSaving}
-                          onClick={() => setScheduleBlockToRemove(block)}
-                        >
-                          Liberar
-                        </button>
-                      </div>
-                    ))}
+                        {hiddenEntries > 0
+                          ? `Ver agenda completa +${hiddenEntries}`
+                          : "Ver detalhes do dia"}
+                      </button>
+                    )}
                   </article>
                 );
               })}
@@ -1977,6 +2095,23 @@ function completionForm(
           <div className="integration-status"><span>✓</span><div><b>Integrações preparadas</b><small>Resend, WhatsApp Business Cloud API e notificações internas serão acionados pelo backend após a reserva ser gravada no Supabase.</small></div></div>
         </div>}
       </main>
+
+      <ProfessionalDayAgendaDialog
+        open={selectedAgendaDate !== null}
+        date={selectedAgendaDate}
+        appointments={selectedDayAppointments}
+        blocks={selectedDayScheduleBlocks}
+        blockRemoving={scheduleBlockSaving}
+        renderActions={appointmentActions}
+        renderCompletion={completionForm}
+        onRequestRemoveBlock={(block) =>
+          setScheduleBlockToRemove(block)
+        }
+        onClose={() => {
+          setSelectedAgendaDate(null);
+          setCompletionAppointmentId("");
+        }}
+      />
 
       <ActionDialog
         open={appointmentToCancel !== null}

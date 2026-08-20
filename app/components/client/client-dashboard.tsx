@@ -13,6 +13,7 @@ import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Home
 import { ShowcaseCarousel } from "../shared/showcase-carousel";
 import { ProfessionalFilter } from "../shared/professional-filter";
 import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
+import { buildAppointmentWhatsAppUrl } from "../../lib/appointment-whatsapp";
 
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
@@ -33,7 +34,13 @@ function glideCarousel(element: HTMLDivElement | null, distance: number) {
 
   requestAnimationFrame(animate);
 }
-function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () => void | Promise<void> }) {
+function ServiceScheduling({
+  clientName,
+  onAppointmentCreated,
+}: {
+  clientName: string;
+  onAppointmentCreated: () => void | Promise<void>;
+}) {
   const today = new Date();
   const firstAvailable = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
   const [selected, setSelected] = useState<Service | null>(null);
@@ -104,11 +111,31 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
         setAvailabilityReload((value) => value + 1);
       } finally { setBookingSubmitting(false); }
   }
+
+  const whatsappUrl =
+    confirmed && selected
+      ? buildAppointmentWhatsAppUrl({
+          whatsappNumber:
+            selected.professionalWhatsapp,
+          clientName,
+          professionalName:
+            selected.professionalFullName ||
+            selected.professional,
+          serviceName: selected.name,
+          date: selectedDate,
+          time,
+          duration: selected.duration,
+          price: selected.price,
+          appointmentId,
+        })
+      : null;
+
   const slideClient = (direction: number) =>
     clientCarousel.current?.scrollBy({
       left: direction * clientCarousel.current.clientWidth * 0.82,
       behavior: "smooth",
     });
+
   if (confirmed && selected)
     return (
       <section className="schedule-success">
@@ -129,7 +156,34 @@ function ServiceScheduling({ onAppointmentCreated }: { onAppointmentCreated: () 
           O pagamento de R$ {selected.price},00 será realizado no local.
         </small>
         <small className="appointment-reference">Código do agendamento: {appointmentId.slice(0, 8).toUpperCase()}</small>
-        <div className="confirmation-channels"><span>✓ Confirmação registrada no aplicativo</span><span>✉ E-mail preparado pelo Resend</span><span>◍ WhatsApp Business preparado</span><small>{selected.professional} também será avisada conforme as preferências dela.</small></div>
+        <div className="confirmation-channels">
+          <span>✓ Agendamento registrado no aplicativo</span>
+          <span>✉ Confirmação por e-mail preparada</span>
+
+          {whatsappUrl ? (
+            <>
+              <small>
+                Se desejar, envie os dados do agendamento diretamente
+                para {selected.professional} pelo WhatsApp.
+              </small>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  window.location.href = whatsappUrl;
+                }}
+              >
+                Enviar para {selected.professional} pelo WhatsApp
+              </button>
+            </>
+          ) : (
+            <small>
+              O WhatsApp da profissional ainda não está disponível.
+              Seu agendamento já está confirmado.
+            </small>
+          )}
+        </div>
         <button
           className="primary"
           onClick={() => {
@@ -464,7 +518,12 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
             </button>
           )}
         </div>
-        {tab === "Serviços" && <ServiceScheduling onAppointmentCreated={loadAppointments} />}
+        {tab === "Serviços" && (
+          <ServiceScheduling
+            clientName={clientName}
+            onAppointmentCreated={loadAppointments}
+          />
+        )}
         {tab === "Início" && (
           <>
             <ShowcaseCarousel compact />
