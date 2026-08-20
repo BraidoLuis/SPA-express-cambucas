@@ -1,5 +1,7 @@
 import { createClient } from "../../../lib/supabase/client";
-
+import {
+  appointmentDurationMinutes,
+} from "../appointment-duration";
 export type ProfessionalAppointmentStatus =
   | "pending"
   | "confirmed"
@@ -95,26 +97,29 @@ export async function getProfessionalAgenda(
         ? row.payments[0]
         : row.payments;
 
+      const actualDuration =
+        appointmentDurationMinutes(
+          row.start_at,
+          row.end_at,
+          row.services?.duration_minutes ?? 0,
+        );
+
       return {
         id: row.id,
         clientName: row.client_name,
         clientEmail: row.client_email,
         clientPhone: row.client_phone,
         serviceName:
-          row.services?.name || "Serviço não informado",
-        duration:
-          row.services?.duration_minutes ||
-          Math.round(
-            (new Date(row.end_at).getTime() -
-              new Date(row.start_at).getTime()) /
-              60000,
-          ),
+          row.services?.name ||
+          "Serviço não informado",
+        duration: actualDuration,
         start: row.start_at,
         end: row.end_at,
         status: row.status,
         outsideSchedule: row.outside_schedule,
         paymentAmount: Number(payment?.amount || 0),
-        paymentStatus: payment?.status || "pending",
+        paymentStatus:
+          payment?.status || "pending",
       };
     },
   );

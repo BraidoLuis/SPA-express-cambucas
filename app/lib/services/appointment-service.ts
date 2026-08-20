@@ -1,5 +1,7 @@
 import { createClient } from "../../../lib/supabase/client";
-
+import {
+  appointmentDurationMinutes,
+} from "../appointment-duration";
 export type CreateAppointmentInput = {
   professionalId: string;
   serviceId: string;
@@ -124,7 +126,13 @@ export async function getClientAppointments(): Promise<ClientAppointment[]> {
         ? row.payments[0]
         : row.payments;
 
-    return {
+    const actualDuration = appointmentDurationMinutes(
+      row.start_at,
+      row.end_at,
+      row.services.duration_minutes,
+    );
+
+      return {
         id: row.id,
         start: row.start_at,
         end: row.end_at,
@@ -132,12 +140,14 @@ export async function getClientAppointments(): Promise<ClientAppointment[]> {
         notes: row.notes,
         serviceName: row.services.name,
         category: row.services.category,
-        duration: row.services.duration_minutes,
-        professionalName: row.professionals.display_name,
+        duration: actualDuration,
+        professionalName:
+          row.professionals.display_name,
         professionalId: row.professionals.id,
         price: Number(payment?.amount || 0),
-        paymentStatus: payment?.status || "pending",
-    };
+        paymentStatus:
+          payment?.status || "pending",
+      };
     });
 }
 

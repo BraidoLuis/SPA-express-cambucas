@@ -1,5 +1,7 @@
 import { createClient } from "../../../lib/supabase/client";
-
+import {
+  BOOKING_START_INTERVAL_MINUTES,
+} from "../booking-grid";
 export type ProfessionalAvailabilityRule = {
   id: string | null;
   weekday: number;
@@ -43,7 +45,7 @@ export async function getProfessionalAvailability(
     weekday: rule.weekday,
     startTime: rule.start_time.slice(0, 5),
     endTime: rule.end_time.slice(0, 5),
-    slotMinutes: rule.slot_minutes,
+    slotMinutes: BOOKING_START_INTERVAL_MINUTES,
     active: rule.active,
   }));
 }
@@ -60,7 +62,7 @@ export async function saveProfessionalAvailability(
       weekday: rule.weekday,
       start_time: rule.startTime,
       end_time: rule.endTime,
-      slot_minutes: rule.slotMinutes,
+      slot_minutes: BOOKING_START_INTERVAL_MINUTES,
       active: rule.active,
       valid_from: null,
       valid_until: null,
@@ -73,13 +75,39 @@ export async function saveProfessionalAvailability(
         .eq("id", rule.id)
         .eq("professional_id", professionalId);
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(
+          [
+            error.message,
+            error.details,
+            error.hint,
+            error.code
+              ? `Código: ${error.code}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
+      }
     } else {
       const { error } = await supabase
         .from("availability_rules")
         .insert(values);
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(
+          [
+            error.message,
+            error.details,
+            error.hint,
+            error.code
+              ? `Código: ${error.code}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        );
+      }
     }
   }
 }

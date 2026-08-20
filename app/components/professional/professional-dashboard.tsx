@@ -42,6 +42,9 @@ import {
   getProfessionalScheduleBlocks,
   type ProfessionalScheduleBlock,
 } from "../../lib/services/professional-schedule-block-service";
+import {
+  BOOKING_START_INTERVAL_MINUTES,
+} from "../../lib/booking-grid";
 import { Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import { ServiceCoverImage } from "../shared/service-cover-image";
 import { ServiceCoverEditor } from "../shared/service-cover-editor";
@@ -94,9 +97,6 @@ export function ProfessionalDashboard({
   const [section, setSection] = useState("Meu dia");
   const today = new Date();
   const [agendaMonth, setAgendaMonth] = useState(monthKey(today));
-  const [slotMinutes, setSlotMinutes] = useState(
-    access.defaultSlotMinutes,
-  );
   const [showServiceForm, setShowServiceForm] = useState(false);
   const [showExtraForm, setShowExtraForm] = useState(false);
   const [extraServiceId, setExtraServiceId] = useState("");
@@ -379,7 +379,7 @@ export function ProfessionalDashboard({
             weekday,
             startTime: "09:00",
             endTime: weekday === 6 ? "15:00" : "18:00",
-            slotMinutes,
+            slotMinutes: BOOKING_START_INTERVAL_MINUTES,
             active: index < 6,
           };
         },
@@ -387,9 +387,6 @@ export function ProfessionalDashboard({
 
       setAvailabilityRules(completeRules);
 
-      if (storedRules.length > 0) {
-        setSlotMinutes(storedRules[0].slotMinutes);
-      }
     } catch {
       setAvailabilityError(
         "Não foi possível carregar sua disponibilidade.",
@@ -409,19 +406,6 @@ export function ProfessionalDashboard({
           ? { ...rule, ...changes }
           : rule,
       ),
-    );
-
-    setAvailabilitySuccess("");
-  }
-
-  function changeSlotMinutes(value: number) {
-    setSlotMinutes(value);
-
-    setAvailabilityRules((currentRules) =>
-      currentRules.map((rule) => ({
-        ...rule,
-        slotMinutes: value,
-      })),
     );
 
     setAvailabilitySuccess("");
@@ -454,22 +438,27 @@ export function ProfessionalDashboard({
     setAvailabilitySaving(true);
 
     try {
-      const normalizedRules = availabilityRules.map((rule) => ({
-        ...rule,
-        slotMinutes,
-      }));
-
       await saveProfessionalAvailability(
         access.id,
-        normalizedRules,
+        availabilityRules,
       );
 
       setAvailabilitySuccess("Disponibilidade salva com sucesso.");
       await loadAvailability();
       setAvailabilitySuccess("Disponibilidade salva com sucesso.");
-    } catch {
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" &&
+              error !== null &&
+              "message" in error
+            ? String(error.message)
+            : "";
+
       setAvailabilityError(
-        "Não foi possível salvar sua disponibilidade.",
+        message ||
+          "Não foi possível salvar sua disponibilidade.",
       );
     } finally {
       setAvailabilitySaving(false);
@@ -1455,7 +1444,10 @@ function completionForm(
                 </button>
               </form>
             )}
-            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>Grade de <b>{slotMinutes} minutos</b> · horários conforme sua disponibilidade</span></div>
+            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>Cadência de{" "}
+<b>
+  {BOOKING_START_INTERVAL_MINUTES} minutos
+</b> · horários conforme sua disponibilidade</span></div>
             {scheduleBlocksLoading && (
               <p className="schedule-block-loading">
                 Carregando bloqueios...
@@ -1786,24 +1778,14 @@ function completionForm(
               <>
                 <div className="schedule-rules-card">
                   <div>
-                    <label>
-                      Intervalo da grade
-
-                      <select
-                        value={slotMinutes}
-                        onChange={(event) =>
-                          changeSlotMinutes(Number(event.target.value))
-                        }
-                      >
-                        <option value="60">De hora em hora</option>
-                        <option value="30">A cada 30 minutos</option>
-                        <option value="15">A cada 15 minutos</option>
-                      </select>
-                    </label>
+                    <b>Horários flexíveis</b>
 
                     <small>
-                      Define de quanto em quanto tempo os horários poderão
-                      começar.
+                      Os horários para agendamento podem
+                      começar a cada{" "}
+                      {BOOKING_START_INTERVAL_MINUTES} minutos.
+                      A duração ocupada será definida pelo
+                      serviço escolhido.
                     </small>
                   </div>
 
