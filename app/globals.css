@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --plum: #54204f;
-  --plum2: #713269;
+  --plum: #d7bc6f;
+  --plum2: #f6c344;
   --lavender: #c994d5;
   --lilac: #f5e9f5;
   --blush: #fbf5f2;
@@ -500,7 +500,7 @@ img {
 .section-heading h2 em,
 .cta h2 em {
   font-weight: 400;
-  color: #9b6995;
+  color: var(--plum2);
 }
 
 .hero-copy > p {
@@ -747,7 +747,7 @@ img {
 }
 
 .experience b {
-  font: 600 45px var(--font-display);
+  font: 600 40px var(--font-display);
 }
 
 .experience span {
@@ -1404,8 +1404,8 @@ footer {
 
 .admin-shell aside nav i {
   margin-left: auto;
+  color: var(--dark-bg);
   background: #e8cae5;
-  color: var(--plum);
   border-radius: 20px;
   padding: 2px 7px;
   font-style: normal;
@@ -1496,12 +1496,12 @@ footer {
 
 .notification i {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  background: #c66b84;
+  top: -8px;
+  right: -8px;
+  background: var(--plum);
   color: white;
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   font-size: 12px;
   display: grid;
@@ -1614,7 +1614,7 @@ footer {
 
 .filters {
   display: flex;
-  background: #f6f1f4;
+  gap: 6px;
   border-radius: 8px;
   padding: 3px;
 }
@@ -1765,7 +1765,7 @@ footer {
   display: grid;
   place-items: center;
   font-size: 12px;
-  color: var(--plum);
+  color: black;
 }
 
 .bar-row > div b {
@@ -1832,7 +1832,7 @@ footer {
 .pro-row em {
   font-style: normal;
   font-size: 12px;
-  color: var(--green);
+  color: black !important;
   background: #e9f5ef;
   border-radius: 20px;
   padding: 5px 7px;
@@ -3092,7 +3092,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .professional-form-grid fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 12px; grid-template-columns: repeat(2, 1fr); }
 .professional-form-grid legend { padding: 0 5px; }
 .professional-service-check, .professional-active { display: flex !important; align-items: center; gap: 7px; min-height: 34px; font-size: 12px; }
-.professional-dialog form > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.professional-dialog form > footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; background: none; border: 0; }
 .professional-dialog form > footer button { min-height: 42px; padding: 9px 16px; border: 1px solid var(--line); border-radius: 8px; }
 .professional-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
 .professional-detail-grid section { border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-width: 0; }
@@ -3141,7 +3141,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .admin-slot-options button.active { border-color: var(--plum); background: var(--plum); color: white; }
 .admin-slot-options span { align-self: center; color: var(--muted); font-size: 12px; }
 .admin-effective-values { padding: 10px; border-radius: 8px; background: #f5edf4; color: var(--muted); font-size: 12px; }
-.admin-appointment-form > footer, .admin-appointment-review footer, .admin-flow-grid > footer { display: flex; justify-content: flex-end; gap: 8px; }
+.admin-appointment-form > footer, .admin-appointment-review footer, .admin-flow-grid > footer { display: flex; justify-content: flex-end; gap: 8px; background: none; padding: 10px 0 0; border-top: 1px solid var(--line); }
 .admin-appointment-form > footer button, .admin-appointment-review footer button, .admin-flow-grid > footer button { min-height: 42px; padding: 9px 15px; border: 1px solid var(--line); border-radius: 8px; }
 .admin-appointment-review { margin-top: 16px; }
 .admin-appointment-review h3, .admin-flow-success h3 { color: var(--plum); }
@@ -3245,7 +3245,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .admin-client-list > article { display: grid; grid-template-columns: minmax(190px, 1.2fr) minmax(180px, 1.2fr) minmax(150px, 1fr) minmax(210px, 1.25fr) minmax(110px, .7fr) auto; gap: 12px; align-items: center; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: white; }
 .admin-client-list > article.inactive { opacity: .72; }
 .admin-client-list article > div { min-width: 0; }
-.admin-client-list article > div:not(.client-admin-identity, .client-admin-actions) { display: grid; gap: 3px; }
+.admin-client-list article > div:not(.client-admin-identity, .client-admin-actions) { display: grid; gap: 6px; }
 .admin-client-list b, .admin-client-list span, .admin-client-list small { min-width: 0; overflow-wrap: anywhere; font-size: 12px; font-style: normal; }
 .admin-client-list small, .admin-client-list span { color: var(--muted); }
 .client-admin-identity { display: flex; align-items: center; gap: 9px; }
@@ -3253,10 +3253,10 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .client-avatar { overflow: hidden; flex: 0 0 auto; }
 .client-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .active-pill-inline, .inactive-pill-inline { width: fit-content; padding: 3px 7px; border-radius: 14px; }
-.active-pill-inline { background: #e5f4ec; color: var(--green) !important; }
+.active-pill-inline { background: #e5f4ec; color: var(--dark-bg) !important; }
 .inactive-pill-inline { background: #f1eeee; color: #6e6268 !important; }
 .client-admin-actions { display: flex; gap: 4px; }
-.client-admin-actions button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 8px; background: #f5edf4; color: var(--plum); }
+.client-admin-actions button { width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 8px; background: #f5edf4; color: var(--dark-bg); }
 .client-admin-actions svg { width: 16px; }
 .admin-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 16px; font-size: 12px; }
 .admin-pagination button { min-height: 40px; display: inline-flex; align-items: center; gap: 5px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--plum); }
@@ -4357,6 +4357,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
   justify-content: center;
   gap: 18px;
   background: #f8f2f7;
+  color: #000;
   border-radius: 12px;
   padding: 14px;
   margin: 20px 0;
@@ -5548,7 +5549,7 @@ small {
   gap: 10px;
   border: 1px solid #ffffff66;
   border-radius: 18px;
-  background: linear-gradient(135deg, #713769, #9b5990);
+  background: linear-gradient(135deg, var(--plum), var(--plum2));
   color: white;
   padding: 12px 14px;
   box-shadow: 0 16px 45px #4c21465c;
@@ -5580,7 +5581,7 @@ small {
 .floating-booking-cta small {
   font-size: 12px;
   letter-spacing: 0.08em;
-  color: #f3dfee;
+  color: #ffffff;
 }
 
 .floating-booking-cta b {
@@ -5980,7 +5981,7 @@ small {
 .admin-media-info { display: grid; gap: 8px; }
 .admin-media-info > p { margin: 0; overflow-wrap: anywhere; }
 .admin-media-info > small { color: var(--muted); }
-.admin-media-info footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.admin-media-info footer { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; background: var(--surface); padding: 12px; border-radius: 12px; }
 .admin-media-info footer .button { flex: 1 1 auto; }
 .admin-media-grid .is-expired { opacity: .72; }
 .showcase-status-row { display: flex; justify-content: flex-end; }
@@ -6123,6 +6124,7 @@ small {
 
 .admin-shell h2 {
   font-size: 18px;
+  margin-bottom: 10px;
 }
 
 .admin-shell h3 {
@@ -7340,9 +7342,9 @@ small {
   color: #e6aede;
 }
 
-.dark-theme :is(button, a) {
+/* .dark-theme :is(button, a) {
   color: inherit;
-}
+} */
 
 .dark-theme .primary {
   background: #a45a99;
@@ -8845,7 +8847,7 @@ html {
   border-radius: 7px;
   padding: 7px;
   margin-top: 5px;
-  color: var(--plum);
+  color: var(--ink);
 }
 
 .calendar-booking.extra {
@@ -9679,7 +9681,6 @@ html {
 
 .dark-theme .service-admin-icon {
   background: none;
-  color: #55204f;
 }
 
 .dark-theme .active-pill {

@@ -1095,7 +1095,6 @@ function completionForm(
                 <b>{fullName}</b>
                 <small>Profissional</small>
               </div>
-              ⌄
             </div>
             <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="professional-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>
@@ -1732,7 +1731,6 @@ function completionForm(
                 </article>
               ))}
             </div>
-            <div className="permission-banner"><span>i</span><p><b>A agenda respeita a duração cadastrada</b><small>Um serviço de 90 minutos ocupa automaticamente dois blocos em uma grade de 60 minutos, evitando sobreposição.</small></p></div>
           </div>
         )}
         {section === "Disponibilidade" && (

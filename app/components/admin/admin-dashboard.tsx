@@ -1572,7 +1572,6 @@ export function AdminDashboard({
                 <b>{adminName}</b>
                 <small>Administradora</small>
               </div>
-              ⌄
             </div>
             <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="admin-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>

@@ -203,7 +203,7 @@ export function PublicSite({
             <div className="hero-sparkle sparkle-one">✦</div>
             <div className="hero-sparkle sparkle-two">✦</div>
             <img
-              src="/team-access.png"
+              src="/team-access-removebg-preview.png"
               alt="Eliane e Dayanne, profissionais do Spa Express Cambucás"
             />
             <div className="floating-card">
