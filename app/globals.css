@@ -13365,3 +13365,150 @@ html {
 #professional-navigation{
   overflow-y: auto;
 }
+
+.booking-gap-suggestions {
+  display: grid;
+  gap: 14px;
+  margin-top: 20px;
+  padding: 18px;
+  border: 1px solid
+    color-mix(in srgb, var(--gold) 42%, var(--line));
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--gold) 10%, var(--surface)),
+      var(--surface)
+    );
+}
+
+.booking-gap-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.booking-gap-heading > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: color-mix(
+    in srgb,
+    var(--gold) 18%,
+    var(--surface)
+  );
+  color: var(--gold);
+}
+
+.booking-gap-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.booking-gap-heading strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.booking-gap-heading small,
+.booking-gap-warning {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.booking-gap-list {
+  display: grid;
+  gap: 10px;
+}
+
+.booking-gap-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.booking-gap-card > div {
+  display: grid;
+  gap: 3px;
+}
+
+.booking-gap-card small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+}
+
+.booking-gap-card strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.booking-gap-card span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.booking-gap-card button {
+  min-height: 42px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #25d366;
+  color: #0e351d;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.booking-gap-card button:hover {
+  background: #20bd5a;
+  transform: translateY(-1px);
+}
+
+.dark-theme .booking-gap-suggestions {
+  border-color: color-mix(
+    in srgb,
+    var(--gold) 40%,
+    var(--dark-border)
+  );
+  background: var(--dark-surface-2);
+}
+
+.dark-theme .booking-gap-card {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-3);
+}
+
+.dark-theme .booking-gap-heading strong,
+.dark-theme .booking-gap-card strong {
+  color: var(--dark-text);
+}
+
+.dark-theme .booking-gap-heading small,
+.dark-theme .booking-gap-card span,
+.dark-theme .booking-gap-warning {
+  color: var(--dark-muted);
+}
+
+@media (max-width: 650px) {
+  .booking-gap-suggestions {
+    padding: 14px;
+  }
+
+  .booking-gap-card {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .booking-gap-card button {
+    width: 100%;
+  }
+}

@@ -4,7 +4,12 @@ import { pad, type Service } from "../../lib/spa-data";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
 import { getClientCatalog } from "../../lib/services/catalog-service";
-import { getAvailableSlots, type AvailableSlot } from "../../lib/services/availability-service";
+import {
+  getAvailableSlots,
+  getBookingGapSuggestions,
+  type AvailableSlot,
+  type BookingGapSuggestion,
+} from "../../lib/services/availability-service";
 import { cancelClientAppointment, createClientAppointment, getClientAppointments, type ClientAppointment } from "../../lib/services/appointment-service";
 import { ClientProfileForm } from "./client-profile-form";
 import { ActionDialog } from "../shared/action-dialog";
@@ -13,7 +18,10 @@ import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Home
 import { ShowcaseCarousel } from "../shared/showcase-carousel";
 import { ProfessionalFilter } from "../shared/professional-filter";
 import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
-import { buildAppointmentWhatsAppUrl } from "../../lib/appointment-whatsapp";
+import {
+  buildAppointmentWhatsAppUrl,
+  buildBookingGapWhatsAppUrl,
+} from "../../lib/appointment-whatsapp";
 
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
@@ -57,6 +65,8 @@ function ServiceScheduling({
   const [catalogLoading, setCatalogLoading] = useState(true);
   const [catalogError, setCatalogError] = useState("");
   const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
+  const [gapSuggestions, setGapSuggestions] =
+    useState<BookingGapSuggestion[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
   const [availabilityReload, setAvailabilityReload] = useState(0);
@@ -73,18 +83,68 @@ function ServiceScheduling({
   }
   useEffect(() => { queueMicrotask(() => void loadCatalog()); }, []);
   useEffect(() => {
-    if (!selected?.id || !selected.professionalId) return;
+    if (!selected?.id || !selected.professionalId) {
+      return;
+    }
+
     let cancelled = false;
+
     queueMicrotask(() => {
       if (cancelled) return;
-      setSlotsLoading(true); setSlotsError(""); setAvailableSlots([]); setTime(""); setSelectedSlot(null); setBookingError("");
-      getAvailableSlots(selected.professionalId!, selected.id!, selectedDate)
-        .then((slots) => { if (!cancelled) setAvailableSlots(slots); })
-        .catch(() => { if (!cancelled) setSlotsError("Não foi possível consultar a agenda agora."); })
-        .finally(() => { if (!cancelled) setSlotsLoading(false); });
+
+      setSlotsLoading(true);
+      setSlotsError("");
+      setAvailableSlots([]);
+      setGapSuggestions([]);
+      setTime("");
+      setSelectedSlot(null);
+      setBookingError("");
+
+      Promise.all([
+        getAvailableSlots(
+          selected.professionalId!,
+          selected.id!,
+          selectedDate,
+        ),
+
+        /*
+        * A consulta de encaixes é opcional.
+        * Uma falha nela não impede o agendamento normal.
+        */
+        getBookingGapSuggestions(
+          selected.professionalId!,
+          selected.id!,
+          selectedDate,
+        ).catch(() => [] as BookingGapSuggestion[]),
+      ])
+        .then(([slots, gaps]) => {
+          if (cancelled) return;
+
+          setAvailableSlots(slots);
+          setGapSuggestions(gaps);
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSlotsError(
+              "Não foi possível consultar a agenda agora.",
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setSlotsLoading(false);
+          }
+        });
     });
-    return () => { cancelled = true; };
-  }, [selected, selectedDate, availabilityReload]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selected,
+    selectedDate,
+    availabilityReload,
+  ]);
   async function confirmAppointment() {
     if (!selected?.id || !selected.professionalId || !selectedSlot) return;
     setBookingSubmitting(true); setBookingError("");
@@ -279,7 +339,92 @@ function ServiceScheduling({
             </div>
             {slotsLoading && <div className="slots-feedback"><span>✦</span> Consultando agenda...</div>}
             {slotsError && <div className="slots-feedback error"><span>{slotsError}</span><button onClick={() => setAvailabilityReload((value) => value + 1)}>Tentar novamente</button></div>}
-            {!slotsLoading && !slotsError && availableSlots.length === 0 && <div className="slots-feedback">Não há horários livres nesta data. Escolha outro dia.</div>}
+            {!slotsLoading &&
+            !slotsError &&
+            availableSlots.length === 0 &&
+            gapSuggestions.length === 0 && (
+              <div className="slots-feedback">
+                Não há horários livres ou possíveis encaixes nesta
+                data. Escolha outro dia.
+              </div>
+            )}
+            {!slotsLoading &&
+              !slotsError &&
+              gapSuggestions.length > 0 &&
+              selected.professionalWhatsapp && (
+                <section className="booking-gap-suggestions">
+                  <div className="booking-gap-heading">
+                    <span>✦</span>
+
+                    <div>
+                      <strong>Possíveis encaixes</strong>
+                      <small>
+                        Estes intervalos são menores que os{" "}
+                        {selected.duration} minutos necessários para o
+                        serviço. Consulte a profissional para verificar
+                        uma possibilidade.
+                      </small>
+                    </div>
+                  </div>
+
+                  <div className="booking-gap-list">
+                    {gapSuggestions.map((gap) => {
+                      const gapWhatsAppUrl =
+                        buildBookingGapWhatsAppUrl({
+                          whatsappNumber:
+                            selected.professionalWhatsapp,
+                          clientName,
+                          professionalName:
+                            selected.professionalFullName ||
+                            selected.professional,
+                          serviceName: selected.name,
+                          date: selectedDate,
+                          gapStart: gap.startLabel,
+                          gapEnd: gap.endLabel,
+                          availableMinutes:
+                            gap.availableMinutes,
+                          serviceDuration: selected.duration,
+                        });
+
+                      if (!gapWhatsAppUrl) return null;
+
+                      return (
+                        <article
+                          className="booking-gap-card"
+                          key={`${gap.start}-${gap.end}`}
+                        >
+                          <div>
+                            <small>INTERVALO LIVRE</small>
+
+                            <strong>
+                              {gap.startLabel} às {gap.endLabel}
+                            </strong>
+
+                            <span>
+                              {gap.availableMinutes} minutos disponíveis
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              window.location.href =
+                                gapWhatsAppUrl;
+                            }}
+                          >
+                            Consultar encaixe pelo WhatsApp
+                          </button>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <small className="booking-gap-warning">
+                    O envio da mensagem não reserva o horário. O encaixe
+                    depende da confirmação da profissional.
+                  </small>
+                </section>
+              )}
             {bookingError && <div className="booking-error">{bookingError}</div>}
             <div className="schedule-summary">
               <div>
