@@ -1,1 +1,0 @@
-export const BOOKING_START_INTERVAL_MINUTES = 15;

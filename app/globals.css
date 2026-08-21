@@ -13060,8 +13060,8 @@ html {
 .professional-month-calendar
   > article.professional-calendar-day {
   display: flex;
-  height: 250px;
-  min-height: 250px;
+  height: 180px;
+  min-height: 180px;
   flex-direction: column;
   overflow: hidden;
 }
@@ -13348,10 +13348,20 @@ html {
     overscroll-behavior-y: contain;
   }
 
+  .professional-month-calendar
+    > article.professional-calendar-day {
+    height: 150px;
+    min-height: 150px;
+  }
+
   .professional-day-agenda-dialog
     .professional-day-agenda-item {
     height: max-content !important;
     min-height: max-content !important;
     flex-shrink: 0;
   }
+}
+
+#professional-navigation{
+  overflow-y: auto;
 }

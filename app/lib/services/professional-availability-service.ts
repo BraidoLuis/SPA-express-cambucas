@@ -1,13 +1,10 @@
 import { createClient } from "../../../lib/supabase/client";
-import {
-  BOOKING_START_INTERVAL_MINUTES,
-} from "../booking-grid";
+
 export type ProfessionalAvailabilityRule = {
   id: string | null;
   weekday: number;
   startTime: string;
   endTime: string;
-  slotMinutes: number;
   active: boolean;
 };
 
@@ -16,7 +13,6 @@ type AvailabilityRuleRow = {
   weekday: number;
   start_time: string;
   end_time: string;
-  slot_minutes: number;
   active: boolean;
 };
 
@@ -30,7 +26,6 @@ export async function getProfessionalAvailability(
       weekday,
       start_time,
       end_time,
-      slot_minutes,
       active
     `)
     .eq("professional_id", professionalId)
@@ -45,7 +40,6 @@ export async function getProfessionalAvailability(
     weekday: rule.weekday,
     startTime: rule.start_time.slice(0, 5),
     endTime: rule.end_time.slice(0, 5),
-    slotMinutes: BOOKING_START_INTERVAL_MINUTES,
     active: rule.active,
   }));
 }
@@ -62,7 +56,6 @@ export async function saveProfessionalAvailability(
       weekday: rule.weekday,
       start_time: rule.startTime,
       end_time: rule.endTime,
-      slot_minutes: BOOKING_START_INTERVAL_MINUTES,
       active: rule.active,
       valid_from: null,
       valid_until: null,

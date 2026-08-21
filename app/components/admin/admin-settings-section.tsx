@@ -12,9 +12,7 @@ import {
   type ProviderStatus,
   type SpaSettings,
 } from "../../lib/services/admin-settings-service";
-import {
-  BOOKING_START_INTERVAL_MINUTES,
-} from "../../lib/booking-grid";
+
 const notificationLabels: Record<string, string> = {
   inApp: "Notificações dentro do sistema",
   clientEmail: "Enviar e-mail para clientes",
@@ -378,24 +376,15 @@ export function AdminSettingsSection() {
                       }
                     />
                   </label>
-                  <label>
-                    Cadência dos horários
-
-                    <input
-                      type="number"
-                      value={
-                        BOOKING_START_INTERVAL_MINUTES
-                      }
-                      readOnly
-                      disabled
-                    />
+                  <div className="booking-rule-information">
+                    <b>Intervalo entre atendimentos</b>
 
                     <small>
-                      Os atendimentos podem começar a cada{" "}
-                      {BOOKING_START_INTERVAL_MINUTES} minutos.
-                      A duração ocupada depende do serviço.
+                      Os horários são calculados conforme a duração
+                      de cada serviço, com 10 minutos livres entre
+                      clientes.
                     </small>
-                  </label>
+                  </div>
                   <label>
                     <input
                       type="checkbox"

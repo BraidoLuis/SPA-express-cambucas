@@ -45,9 +45,6 @@ import {
 import {
   ProfessionalDayAgendaDialog,
 } from "./professional-day-agenda-dialog";
-import {
-  BOOKING_START_INTERVAL_MINUTES,
-} from "../../lib/booking-grid";
 import { Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import { ServiceCoverImage } from "../shared/service-cover-image";
 import { ServiceCoverEditor } from "../shared/service-cover-editor";
@@ -402,8 +399,8 @@ export function ProfessionalDashboard({
             id: null,
             weekday,
             startTime: "09:00",
-            endTime: weekday === 6 ? "15:00" : "18:00",
-            slotMinutes: BOOKING_START_INTERVAL_MINUTES,
+            endTime:
+              weekday === 6 ? "15:00" : "18:00",
             active: index < 6,
           };
         },
@@ -1091,11 +1088,6 @@ function completionForm(
             </button>
           );})}
         </nav>
-        <div className="permission-note">
-          <span>⌾</span>
-          <b>Acesso profissional</b>
-          <small>Você visualiza somente sua agenda e seus serviços.</small>
-        </div>
         <button className="view-site button-with-icon" onClick={goPublic}>
           <ArrowLeft aria-hidden="true" /> Ver site público
         </button>
@@ -1467,10 +1459,10 @@ function completionForm(
                 </button>
               </form>
             )}
-            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>Cadência de{" "}
-<b>
-  {BOOKING_START_INTERVAL_MINUTES} minutos
-</b> · horários conforme sua disponibilidade</span></div>
+            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>
+              <b>10 minutos de intervalo</b> entre atendimentos
+              · horários calculados conforme a duração de cada serviço
+            </span></div>
             {scheduleBlocksLoading && (
               <p className="schedule-block-loading">
                 Carregando bloqueios...
@@ -1895,13 +1887,10 @@ function completionForm(
                 <div className="schedule-rules-card">
                   <div>
                     <b>Horários flexíveis</b>
-
                     <small>
-                      Os horários para agendamento podem
-                      começar a cada{" "}
-                      {BOOKING_START_INTERVAL_MINUTES} minutos.
-                      A duração ocupada será definida pelo
-                      serviço escolhido.
+                      Os horários são calculados conforme a duração
+                      de cada serviço, com 10 minutos de intervalo
+                      entre atendimentos.
                     </small>
                   </div>
 

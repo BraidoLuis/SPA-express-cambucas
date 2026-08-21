@@ -1,5 +1,4 @@
 import { createClient } from "../../../lib/supabase/client";
-import { BOOKING_START_INTERVAL_MINUTES } from "../booking-grid";
 
 export type BusinessSettings = {
   name: string | null;
@@ -32,7 +31,6 @@ export type BookingRules = {
   maximumAdvanceDays: number | null;
   cancellationEnabled: boolean | null;
   cancellationNoticeHours: number | null;
-  defaultGridMinutes: number | null;
   allowSameDay: boolean | null;
   paymentText: string | null;
 };
@@ -98,7 +96,6 @@ export const defaultSpaSettings: SpaSettings = {
     maximumAdvanceDays: null,
     cancellationEnabled: false,
     cancellationNoticeHours: 0,
-    defaultGridMinutes: BOOKING_START_INTERVAL_MINUTES,
     allowSameDay: true,
     paymentText: "Pagamento realizado no local.",
   },
@@ -146,7 +143,6 @@ export async function getAdminSettings(): Promise<SpaSettings> {
     bookingRules: {
       ...defaultSpaSettings.bookingRules,
       ...data.booking_rules,
-      defaultGridMinutes: BOOKING_START_INTERVAL_MINUTES,
     },
     notifications: {
       ...defaultSpaSettings.notifications,
@@ -163,29 +159,22 @@ export async function saveAdminSettings(settings: SpaSettings) {
     throw new Error("Sessão expirada.");
   }
 
-  const normalizedSettings: SpaSettings = {
-    ...settings,
-    bookingRules: {
-      ...settings.bookingRules,
-      defaultGridMinutes:
-        BOOKING_START_INTERVAL_MINUTES,
-    },
-  };
-
-  const { error } = await supabase.from("spa_settings").upsert(
-    {
-      id: true,
-      business: normalizedSettings.business,
-      business_hours:
-        normalizedSettings.businessHours,
-      booking_rules:
-        normalizedSettings.bookingRules,
-      notifications:
-        normalizedSettings.notifications,
-      updated_by: user.user.id,
-    },
-    { onConflict: "id" },
-  );
+  const { error } = await supabase
+    .from("spa_settings")
+    .upsert(
+      {
+        id: true,
+        business: settings.business,
+        business_hours:
+          settings.businessHours,
+        booking_rules:
+          settings.bookingRules,
+        notifications:
+          settings.notifications,
+        updated_by: user.user.id,
+      },
+      { onConflict: "id" },
+    );
 
   if (error) {
     throw new Error(

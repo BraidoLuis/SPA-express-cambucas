@@ -6,7 +6,6 @@ export type ProfessionalAccess = {
   displayName: string;
   specialty: string;
   bio: string | null;
-  defaultSlotMinutes: number;
 };
 
 type ProfessionalRow = {
@@ -15,7 +14,6 @@ type ProfessionalRow = {
   display_name: string;
   specialty: string;
   bio: string | null;
-  default_slot_minutes: number;
 };
 
 export async function getProfessionalAccess(
@@ -24,7 +22,7 @@ export async function getProfessionalAccess(
   const { data, error } = await createClient()
     .from("professionals")
     .select(
-      "id,profile_id,display_name,specialty,bio,default_slot_minutes",
+      "id,profile_id,display_name,specialty,bio",
     )
     .eq("profile_id", profileId)
     .eq("active", true)
@@ -42,6 +40,5 @@ export async function getProfessionalAccess(
     displayName: row.display_name,
     specialty: row.specialty,
     bio: row.bio,
-    defaultSlotMinutes: row.default_slot_minutes,
   };
 }
