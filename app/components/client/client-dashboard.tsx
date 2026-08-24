@@ -695,16 +695,79 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 {historyAppointments.slice(0, 3).map((item) => <div className="history-row" key={item.id}><span>{appointmentDay(item.start)}</span><div><b>{item.serviceName}</b><small>com {item.professionalName}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar novamente</button></div>)}
                 {!appointmentsLoading && historyAppointments.length === 0 && <div className="appointments-inline-empty">Seus atendimentos concluídos aparecerão aqui.</div>}
               </section>
-              <section className="client-loyalty">
-                <span>✦</span>
-                <h2>Seu autocuidado merece recompensa</h2>
-                <p>
-                  Você já realizou <b>{appointments.filter((item) => item.status === "completed").length} atendimentos</b> conosco.
-                </p>
-                <div>
-                  <i style={{ width: `${Math.min(appointments.filter((item) => item.status === "completed").length * 10, 100)}%` }} />
+              <section className="client-faq">
+                <div className="client-faq-heading">
+                  <span>?</span>
+
+                  <div>
+                    <span className="eyebrow">
+                      DÚVIDAS FREQUENTES
+                    </span>
+
+                    <h2>Como podemos ajudar?</h2>
+
+                    <p>
+                      Informações rápidas sobre seus
+                      agendamentos.
+                    </p>
+                  </div>
                 </div>
-                <small>Seu histórico de autocuidado é atualizado automaticamente.</small>
+
+                <div className="client-faq-list">
+                  <details>
+                    <summary>
+                      Como faço um novo agendamento?
+                      <span aria-hidden="true">+</span>
+                    </summary>
+
+                    <p>
+                      Acesse a aba Serviços, escolha o
+                      atendimento e a profissional, selecione
+                      uma data e confirme um dos horários
+                      disponíveis.
+                    </p>
+                  </details>
+
+                  <details>
+                    <summary>
+                      Como funciona o pagamento?
+                      <span aria-hidden="true">+</span>
+                    </summary>
+
+                    <p>
+                      Nenhum pagamento é solicitado pelo site.
+                      O valor do serviço é pago diretamente no
+                      SPA no dia do atendimento.
+                    </p>
+                  </details>
+
+                  <details>
+                    <summary>
+                      Posso cancelar um horário?
+                      <span aria-hidden="true">+</span>
+                    </summary>
+
+                    <p>
+                      Quando o cancelamento estiver disponível,
+                      acesse Meus agendamentos e utilize o botão
+                      Cancelar no atendimento desejado.
+                    </p>
+                  </details>
+
+                  <details>
+                    <summary>
+                      O que é um possível encaixe?
+                      <span aria-hidden="true">+</span>
+                    </summary>
+
+                    <p>
+                      É um intervalo menor que a duração normal
+                      do serviço. Você pode consultar a
+                      profissional pelo WhatsApp, mas o envio da
+                      mensagem não garante a reserva.
+                    </p>
+                  </details>
+                </div>
               </section>
             </div>
           </>

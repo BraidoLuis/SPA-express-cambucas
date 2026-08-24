@@ -75,6 +75,7 @@ export function PublicSite({
   const [homeFilter, setHomeFilter] = useState("Todos");
   const [homeProfessional, setHomeProfessional] = useState("all");
   const [aboutSlide, setAboutSlide] = useState(0);
+  const [heroSlide, setHeroSlide] = useState(0);
   const homeCarousel = useRef<HTMLDivElement>(null);
   const [catalog, setCatalog] = useState<Service[]>(fallbackServices);
   const [publicSettings, setPublicSettings] =
@@ -117,12 +118,136 @@ export function PublicSite({
   const serviceFilters = useMemo(() => ["Todos", ...new Set(catalog.map((item) => item.category))], [catalog]);
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((item) => item.professionalId).map((item) => [item.professionalId!, { id: item.professionalId!, name: item.professionalFullName || item.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
   const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional));
+  const eliane = catalog.find((item) =>
+    (item.professionalFullName || item.professional)
+      .toLocaleLowerCase("pt-BR")
+      .includes("eliane"),
+  );
+
+  const dayanne = catalog.find((item) =>
+    (item.professionalFullName || item.professional)
+      .toLocaleLowerCase("pt-BR")
+      .includes("dayanne"),
+  );
+
+  function buildProfessionalWhatsAppUrl(
+    whatsappNumber: string | undefined,
+    professionalName: string,
+  ): string | null {
+    if (!whatsappNumber) return null;
+
+    const number = whatsappNumber.replace(/\D/g, "");
+
+    if (number.length < 10 || number.length > 15) {
+      return null;
+    }
+
+    const message = [
+      `Olá, ${professionalName}!`,
+      "",
+      "Conheci seu trabalho pelo site do SPA Express Cambucás e gostaria de saber mais sobre seus atendimentos.",
+    ].join("\n");
+
+    return `https://wa.me/${number}?text=${encodeURIComponent(message)}`;
+  }
+
+  const elianeWhatsAppUrl =
+    buildProfessionalWhatsAppUrl(
+      eliane?.professionalWhatsapp,
+      eliane?.professionalFullName || "Eliane",
+    );
+
+  const dayanneWhatsAppUrl =
+    buildProfessionalWhatsAppUrl(
+      dayanne?.professionalWhatsapp,
+      dayanne?.professionalFullName || "Dayanne",
+    );
+
+  const heroSlides = [
+    {
+      eyebrow: "CUIDADO, BELEZA & BEM-ESTAR",
+      title: (
+        <>
+          Seu momento de <em>pausa</em> começa aqui.
+        </>
+      ),
+      description:
+        "Tratamentos pensados para renovar sua autoestima e devolver leveza à sua rotina, em um espaço acolhedor e feito para você.",
+      image: "/team-access-removebg-preview.png",
+      imageAlt:
+        "Eliane e Dayanne, profissionais do Spa Express Cambucás",
+      professional: false,
+      professionalName: "",
+      specialty: "",
+      whatsappUrl: null,
+    },
+    {
+      eyebrow: "CONHEÇA A ELIANE",
+      title: (
+        <>
+          Cuidado que traz <em>leveza</em> para sua rotina.
+        </>
+      ),
+      description:
+        "Massagens, cuidados faciais e corporais realizados com técnica, atenção e protocolos pensados para cada cliente.",
+      image: "/eliane.png",
+      imageAlt: "Atendimento realizado por Eliane Cristina",
+      professional: true,
+      professionalName:
+        eliane?.professionalFullName || "Eliane Cristina",
+      specialty:
+        eliane?.specialty || "Massagista e Esteticista",
+      whatsappUrl: elianeWhatsAppUrl,
+    },
+    {
+      eyebrow: "CONHEÇA A DAYANNE",
+      title: (
+        <>
+          Beleza e personalidade em cada <em>detalhe</em>.
+        </>
+      ),
+      description:
+        "Do cuidado clássico às técnicas em gel, cada atendimento valoriza seu estilo com precisão, criatividade e carinho.",
+      image: "/dayanne.png",
+      imageAlt: "Trabalho de manicure realizado por Dayanne Braido",
+      professional: true,
+      professionalName:
+        dayanne?.professionalFullName || "Dayanne Braido",
+      specialty:
+        dayanne?.specialty || "Manicure e Nail Designer",
+      whatsappUrl: dayanneWhatsAppUrl,
+    },
+  ];
+
+  const currentHero = heroSlides[heroSlide];
+
+  function changeHeroSlide(direction: number) {
+    setHeroSlide((current) => {
+      return (
+        current + direction + heroSlides.length
+      ) % heroSlides.length;
+    });
+  }
   function resetHomeCarousel() { homeCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
-  const slideHome = (direction: number) =>
-    homeCarousel.current?.scrollBy({
-      left: direction * homeCarousel.current.clientWidth * 0.82,
+  const slideHome = (direction: number) => {
+    const carousel = homeCarousel.current;
+
+    if (!carousel) return;
+
+    const desktop =
+      window.matchMedia(
+        "(min-width: 725px)",
+      ).matches;
+
+    carousel.scrollBy({
+      left: desktop
+        ? direction * (carousel.clientWidth + 20)
+        : direction *
+          carousel.clientWidth *
+          0.82,
       behavior: "smooth",
     });
+  };
   const business = publicSettings?.business;
 
   const phoneHref = business?.phone
@@ -169,61 +294,200 @@ export function PublicSite({
       </header>
 
       <main>
-        <section className="hero" id="inicio">
-          <div className="hero-copy">
-            <span className="eyebrow">CUIDADO, BELEZA & BEM-ESTAR</span>
-            <h1>
-              Seu momento de <em>pausa</em> começa aqui.
-            </h1>
-            <p>
-              Tratamentos pensados para renovar sua autoestima e devolver leveza
-              à sua rotina, em um espaço acolhedor e feito para você.
-            </p>
-            <div className="hero-actions">
-              <button className="primary" onClick={() => openBooking()}>
-                Agende seu horário <span>→</span>
-              </button>
-              <a href="#servicos">Conheça os serviços</a>
-            </div>
-            <div className="trust">
-              <div className="avatars">
-                <span>EM</span>
-                <span>NA</span>
-                <span>+</span>
+        <section
+          className={`hero hero-carousel ${
+            currentHero.professional
+              ? "hero-professional"
+              : "hero-general"
+          }`}
+          id="inicio"
+        >
+          <div className="hero-slide-content" key={heroSlide}>
+            <div className="hero-copy">
+              <span className="eyebrow">
+                {currentHero.eyebrow}
+              </span>
+
+              <h1>{currentHero.title}</h1>
+
+              <p>{currentHero.description}</p>
+
+              <div className="hero-actions">
+                {currentHero.professional ? (
+                  currentHero.whatsappUrl ? (
+                    <a
+                      className="primary hero-whatsapp"
+                      href={currentHero.whatsappUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MessageCircle aria-hidden="true" />
+                      Conversar no WhatsApp
+                    </a>
+                  ) : (
+                    <button
+                      type="button"
+                      className="primary hero-whatsapp"
+                      disabled
+                      title="WhatsApp ainda não cadastrado"
+                    >
+                      <MessageCircle aria-hidden="true" />
+                      WhatsApp indisponível
+                    </button>
+                  )
+                ) : (
+                  <button
+                    className="primary"
+                    onClick={() => openBooking()}
+                  >
+                    Agende seu horário <span>→</span>
+                  </button>
+                )}
+
+                <a href="#servicos">
+                  Conheça os serviços
+                </a>
               </div>
-              <p>
-                <b>+500 clientes atendidas</b>
-                <small>Carinho em cada detalhe</small>
-              </p>
+
+              {currentHero.professional ? (
+                <div className="hero-professional-identity">
+                  <span>
+                    {currentHero.professionalName
+                      .split(" ")
+                      .slice(0, 2)
+                      .map((name) => name[0])
+                      .join("")}
+                  </span>
+
+                  <p>
+                    <b>{currentHero.professionalName}</b>
+                    <small>{currentHero.specialty}</small>
+                  </p>
+                </div>
+              ) : (
+                <div className="trust">
+                  <div className="avatars">
+                    <span>EC</span>
+                    <span>DB</span>
+                    <span>+</span>
+                  </div>
+
+                  <p>
+                    <b>+500 clientes atendidas</b>
+                    <small>Carinho em cada detalhe</small>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="hero-visual">
+              <div className="orb orb1" />
+              <div className="orb orb2" />
+
+              <div className="hero-sparkle sparkle-one">
+                ✦
+              </div>
+
+              <div className="hero-sparkle sparkle-two">
+                ✦
+              </div>
+
+              <img
+                src={currentHero.image}
+                alt={currentHero.imageAlt}
+              />
+
+              {currentHero.professional ? (
+                <div className="floating-card hero-professional-card">
+                  <span>✦</span>
+
+                  <div>
+                    <b>{currentHero.professionalName}</b>
+                    <small>{currentHero.specialty}</small>
+                  </div>
+                </div>
+              ) : (
+                <div className="floating-card">
+                  <span>✦</span>
+
+                  <div>
+                    <b>Atendimento personalizado</b>
+                    <small>Você no centro de tudo</small>
+                  </div>
+                </div>
+              )}
+
+              {currentHero.professional &&
+              currentHero.whatsappUrl ? (
+                <a
+                  className="availability-callout"
+                  href={currentHero.whatsappUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageCircle aria-hidden="true" />
+
+                  <div>
+                    <small>FALE DIRETAMENTE</small>
+                    <b>Conversar com a profissional</b>
+                  </div>
+
+                  <strong>→</strong>
+                </a>
+              ) : (
+                <button
+                  className="availability-callout"
+                  onClick={() => openBooking()}
+                >
+                  <span className="availability-dot" />
+
+                  <div>
+                    <small>AGENDA ABERTA</small>
+                    <b>Horários disponíveis</b>
+                  </div>
+
+                  <strong>→</strong>
+                </button>
+              )}
             </div>
           </div>
-          <div className="hero-visual">
-            <div className="orb orb1" />
-            <div className="orb orb2" />
-            <div className="hero-sparkle sparkle-one">✦</div>
-            <div className="hero-sparkle sparkle-two">✦</div>
-            <img
-              src="/team-access-removebg-preview.png"
-              alt="Eliane e Dayanne, profissionais do Spa Express Cambucás"
-            />
-            <div className="floating-card">
-              <span>✦</span>
-              <div>
-                <b>Atendimento personalizado</b>
-                <small>Você no centro de tudo</small>
-              </div>
-            </div>
-            <button
-              className="availability-callout"
-              onClick={() => openBooking()}
-            >
-              <span className="availability-dot" />
-              <div>
-                <small>AGENDA ABERTA</small>
-                <b>Horários disponíveis</b>
-              </div>
-              <strong>→</strong>
-            </button>
+
+          <button
+            type="button"
+            className="hero-carousel-arrow hero-carousel-arrow--previous"
+            onClick={() => changeHeroSlide(-1)}
+            aria-label="Exibir banner anterior"
+          >
+            <ChevronLeft aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            className="hero-carousel-arrow hero-carousel-arrow--next"
+            onClick={() => changeHeroSlide(1)}
+            aria-label="Exibir próximo banner"
+          >
+            <ChevronRight aria-hidden="true" />
+          </button>
+
+          <div
+            className="hero-carousel-pagination"
+            aria-label="Selecionar banner"
+          >
+            {heroSlides.map((slide, index) => (
+              <button
+                type="button"
+                key={slide.eyebrow}
+                className={
+                  heroSlide === index ? "active" : ""
+                }
+                onClick={() => setHeroSlide(index)}
+                aria-label={`Exibir banner ${index + 1}`}
+                aria-current={
+                  heroSlide === index ? "true" : undefined
+                }
+              />
+            ))}
           </div>
         </section>
 
@@ -251,60 +515,10 @@ export function PublicSite({
           </div>
         </section>
 
-        <section className="about about-carousel" id="sobre">
-          {[
-            {
-              image: "/professionals-portrait.png",
-              eyebrow: "SOBRE NÓS",
-              title: <>Beleza que acolhe.<br /><em>Cuidado que transforma.</em></>,
-              text: "O Spa Express Cambucás nasceu para ser um espaço onde cada mulher possa desacelerar, cuidar de si e se sentir verdadeiramente especial.",
-              detail: "Unimos técnicas, experiência e um atendimento próximo para oferecer resultados que vão além da estética.",
-              name: "Spa Express",
-              role: "com carinho, nossa equipe",
-            },
-            {
-              image: "/eliane-care.png",
-              eyebrow: "CONHEÇA A ELIANE",
-              title: <>Cuidado profundo.<br /><em>Leveza para o corpo.</em></>,
-              text: "Eliane é massagista e esteticista, especialista em transformar cada atendimento em uma pausa real na rotina.",
-              detail: "Seu olhar cuidadoso combina bem-estar, técnica e protocolos personalizados para cada cliente.",
-              name: "Eliane Cristina Braido",
-              role: "massagista & esteticista",
-            },
-            {
-              image: "/nails-detail.png",
-              eyebrow: "CONHEÇA A DAYANNE",
-              title: <>Beleza nos detalhes.<br /><em>Unhas com personalidade.</em></>,
-              text: "Dayanne é manicure e nail designer, apaixonada por acabamento impecável e por valorizar o estilo de cada cliente.",
-              detail: "Do cuidado clássico às técnicas em gel, cada etapa é feita com precisão, criatividade e carinho.",
-              name: "Dayanne Braido",
-              role: "manicure & nail designer",
-            },
-          ].map((slide, index) => (
-            <div className={`about-slide ${aboutSlide === index ? "active" : ""}`} key={slide.eyebrow} aria-hidden={aboutSlide !== index}>
-              <div className="about-visual">
-                <div className="frame"><img src={slide.image} alt={slide.name} /></div>
-                {index === 0 && <div className="experience"><b>8+</b><span>anos cuidando<br />de você</span></div>}
-              </div>
-              <div className="about-copy">
-                <span className="eyebrow">{slide.eyebrow}</span>
-                <h2>{slide.title}</h2>
-                <p>{slide.text}</p><p>{slide.detail}</p>
-                <div className="signature">{slide.name}<small>{slide.role}</small></div>
-              </div>
-            </div>
-          ))}
-          <div className="about-controls" aria-label="Navegação sobre a equipe">
-            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 2) % 3)} aria-label="Anterior" title="Anterior"><ChevronLeft aria-hidden="true" /></button>
-            <div>{[0,1,2].map((i) => <button key={i} className={aboutSlide === i ? "active" : ""} onClick={() => setAboutSlide(i)} aria-label={`Ir para item ${i + 1}`} />)}</div>
-            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 1) % 3)} aria-label="Próximo" title="Próximo"><ChevronRight aria-hidden="true" /></button>
-          </div>
-        </section>
-
         <section className="services-section" id="servicos">
           <div className="section-heading">
             <div>
-              <span className="eyebrow">SERVIÇOS CADASTRADOS NO SISTEMA</span>
+              <span className="eyebrow">NOSSOS SERVIÇOS</span>
               <h2>
                 Escolha seu momento
                 <br />
@@ -369,6 +583,57 @@ export function PublicSite({
         </section>
 
         <ShowcaseCarousel />
+
+        <section className="about about-carousel" id="sobre">
+          {[
+            {
+              image: "/professionals-portrait.png",
+              eyebrow: "SOBRE NÓS",
+              title: <>Beleza que acolhe.<br /><em>Cuidado que transforma.</em></>,
+              text: "O Spa Express Cambucás nasceu para ser um espaço onde cada mulher possa desacelerar, cuidar de si e se sentir verdadeiramente especial.",
+              detail: "Unimos técnicas, experiência e um atendimento próximo para oferecer resultados que vão além da estética.",
+              name: "Spa Express",
+              role: "com carinho, nossa equipe",
+            },
+            {
+              image: "/eliane-care.png",
+              eyebrow: "CONHEÇA A ELIANE",
+              title: <>Cuidado profundo.<br /><em>Leveza para o corpo.</em></>,
+              text: "Eliane é massagista e esteticista, especialista em transformar cada atendimento em uma pausa real na rotina.",
+              detail: "Seu olhar cuidadoso combina bem-estar, técnica e protocolos personalizados para cada cliente.",
+              name: "Eliane Cristina Braido",
+              role: "massagista & esteticista",
+            },
+            {
+              image: "/nails-detail.png",
+              eyebrow: "CONHEÇA A DAYANNE",
+              title: <>Beleza nos detalhes.<br /><em>Unhas com personalidade.</em></>,
+              text: "Dayanne é manicure e nail designer, apaixonada por acabamento impecável e por valorizar o estilo de cada cliente.",
+              detail: "Do cuidado clássico às técnicas em gel, cada etapa é feita com precisão, criatividade e carinho.",
+              name: "Dayanne Braido",
+              role: "manicure & nail designer",
+            },
+          ].map((slide, index) => (
+            <div className={`about-slide ${aboutSlide === index ? "active" : ""}`} key={slide.eyebrow} aria-hidden={aboutSlide !== index}>
+              <div className="about-visual">
+                <div className="frame"><img src={slide.image} alt={slide.name} /></div>
+                {index === 0 && <div className="experience"><b>10+</b><span>anos cuidando<br />de você</span></div>}
+              </div>
+              <div className="about-copy">
+                <span className="eyebrow">{slide.eyebrow}</span>
+                <h2>{slide.title}</h2>
+                <p>{slide.text}</p><p>{slide.detail}</p>
+                <div className="signature">{slide.name}<small>{slide.role}</small></div>
+              </div>
+            </div>
+          ))}
+          <div className="about-controls" aria-label="Navegação sobre a equipe">
+            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 2) % 3)} aria-label="Anterior" title="Anterior"><ChevronLeft aria-hidden="true" /></button>
+            <div>{[0,1,2].map((i) => <button key={i} className={aboutSlide === i ? "active" : ""} onClick={() => setAboutSlide(i)} aria-label={`Ir para item ${i + 1}`} />)}</div>
+            <button className="icon-button" onClick={() => setAboutSlide((aboutSlide + 1) % 3)} aria-label="Próximo" title="Próximo"><ChevronRight aria-hidden="true" /></button>
+          </div>
+        </section>
+
 
         <section className="cta">
           <span className="eyebrow">SEU MOMENTO É AGORA</span>
