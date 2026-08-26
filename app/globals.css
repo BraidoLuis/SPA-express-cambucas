@@ -12107,7 +12107,7 @@ html {
 .cost-filters { display:grid; grid-template-columns:2fr repeat(3,1fr); gap:9px; margin:16px 0; }
 .cost-filters label { display:flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:8px; padding:0 9px; }
 .cost-filters svg,.cost-actions svg,.fixed-costs .screen-top svg { width:17px; height:17px; }
-.cost-filters input,.cost-filters select,.cost-form input,.cost-form select,.cost-form textarea,.business-hours input,.notification-options input { min-width:0; width:100%; min-height:40px; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--surface); color:inherit; font-size:12px; }
+.cost-filters input,.cost-filters select,.cost-form input,.cost-form select,.cost-form textarea,.notification-options input { min-width:0; width:100%; min-height:40px; border:1px solid var(--line); border-radius:8px; padding:8px; background:var(--surface); color:inherit; font-size:12px; }
 .cost-filters label input { border:0; }
 .cost-actions { display:flex; gap:6px; }
 .cost-actions button,.status-pill { min-width:38px; min-height:38px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:inherit; }
@@ -12120,7 +12120,7 @@ html {
 .cost-details dt { color:var(--muted); }
 .financial-note { margin:8px 0 14px; }
 .report-chart i.negative { background:#a53d47; }
-.dark-theme :is(.cost-filters input,.cost-filters select,.cost-form input,.cost-form select,.cost-form textarea,.business-hours input,.notification-options input,.cost-actions button,.status-pill) { background:var(--dark-surface-2); border-color:var(--dark-border); color:var(--dark-text); }
+.dark-theme :is(.cost-filters input,.cost-filters select,.cost-form input,.cost-form select,.cost-form textarea,.notification-options input,.cost-actions button,.status-pill) { background:var(--dark-surface-2); border-color:var(--dark-border); color:var(--dark-text); }
 @media (max-width:800px) { .cost-filters,.notification-options { grid-template-columns:1fr 1fr; } .business-hours fieldset { grid-template-columns:1fr 1fr; } }
 @media (max-width:480px) { .cost-filters,.notification-options,.cost-form,.business-hours fieldset { grid-template-columns:1fr; } .cost-form .wide { grid-column:auto; } }
 
@@ -12130,6 +12130,15 @@ html {
   }
 }
 
+.business-hours input{
+  min-height: 15px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  padding: 8px;
+  font-size: 12px;
+}
 .logo-image {
   display: block;
   width: 180px;

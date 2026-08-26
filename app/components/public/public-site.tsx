@@ -208,7 +208,7 @@ export function PublicSite({
       ),
       description:
         "Do cuidado clássico às técnicas em gel, cada atendimento valoriza seu estilo com precisão, criatividade e carinho.",
-      image: "/dayanne.png",
+      image: "/dayanne-ajuste.png",
       imageAlt: "Trabalho de manicure realizado por Dayanne Braido",
       professional: true,
       professionalName:
