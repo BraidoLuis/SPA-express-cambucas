@@ -2357,7 +2357,7 @@ footer {
 
 .dark-theme .button--outline { border-color: #d8a8d2; background: var(--dark-surface-2); color: #f6e6f3; }
 .dark-theme .button--outline:hover { border-color: #edc8e8; background: #4a2d46; color: #fff; }
-.dark-theme .button--ghost { border-color: var(--dark-border); color: var(--dark-text); }
+.dark-theme .button--ghost { border-color: var(--dark-border); background:rgba(36, 18, 33, 0.65);}
 .dark-theme .button--ghost:hover { border-color: #c895c2; background: var(--dark-surface-3); color: #fff; }
 .dark-theme .button--danger-ghost { border-color: #a65e6b; background: #44282e; color: #ffc8d1; }
 .dark-theme .button--danger-ghost:hover { border-color: #d48391; background: #573039; color: #ffe8ec; }
@@ -3037,6 +3037,11 @@ button:disabled { cursor: not-allowed; opacity: .56; }
   border-radius: 20px;
   padding: 5px 8px;
   font-size: 12px;
+}
+
+.dark-theme .skill-tags span {
+  background: #4a2d46;
+  color: #f6e6f3;
 }
 
 .professional-cards > article > button {

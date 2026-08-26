@@ -190,7 +190,7 @@ export function PublicSite({
       ),
       description:
         "Massagens, cuidados faciais e corporais realizados com técnica, atenção e protocolos pensados para cada cliente.",
-      image: "/eliane.png",
+      image: "/eliane-ajuste.png",
       imageAlt: "Atendimento realizado por Eliane Cristina",
       professional: true,
       professionalName:
