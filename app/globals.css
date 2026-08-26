@@ -867,6 +867,7 @@ img {
   align-items: center;
   font-size: 12px;
   color: var(--muted);
+  margin-top: auto;
 }
 
 .service-body > div b {
@@ -13568,14 +13569,6 @@ html {
     display: flex;
     flex: 1;
     flex-direction: column;
-  }
-
-  .services-section
-    .service-grid.mobile-carousel
-    > .service-card
-    .service-body
-    > button {
-    margin-top: auto;
   }
 }
 
