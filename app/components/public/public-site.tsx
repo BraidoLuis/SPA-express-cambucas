@@ -754,6 +754,13 @@ export function PublicSite({
             <a href="#sobre">Sobre nós</a>
             <a href="#servicos">Serviços</a>
             <a href="#localizacao">Localização</a>
+            <a href="/termos-de-uso">
+              Termos de Uso
+            </a>
+
+            <a href="/politica-de-privacidade">
+              Política de Privacidade
+            </a>
             <button type="button" onClick={() => openBooking()}>
               Agendamento
             </button>
