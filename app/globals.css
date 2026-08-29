@@ -8189,7 +8189,7 @@ small {
 }
 
 .signup-visual-copy h1 em {
-  color: #edbee5;
+  color: var(--plum);
   font-weight: 400;
 }
 
