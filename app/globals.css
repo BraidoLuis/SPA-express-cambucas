@@ -2435,10 +2435,11 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .dark-theme :where(input, textarea, select)::placeholder { color: #bfb3bb; opacity: 1; }
 .dark-theme :where(button, input, textarea, select):disabled { opacity: .62; }
 
-@media (max-width: 640px) {
+@media (max-width: 1040px) {
   .service-cover-editor { grid-template-columns: 1fr; }
   .service-cover-editor > :first-child { width: 100%; }
 }
+
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
@@ -3941,11 +3942,12 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 }
 
 .client-service-image {
-  height: 190px;
+  height: 300px;
   position: relative;
   overflow: hidden;
   background: #eadde7;
 }
+
 
 .client-service-image img {
   width: 100%;
@@ -4548,10 +4550,6 @@ small {
   border: 0;
   border-radius: 25px;
   box-shadow: 0 14px 38px #57254e12;
-}
-
-.client-service-image {
-  height: 230px;
 }
 
 .client-service-body {
@@ -15078,4 +15076,167 @@ html {
   .not-found-sparkle {
     animation: none;
   }
+}
+
+/* Correção do editor de serviços da profissional */
+
+.professional-service-edit-form {
+  min-width: 0;
+}
+
+.professional-service-edit-form > .service-cover-fieldset {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  margin: 4px 0 0;
+  box-sizing: border-box;
+}
+
+.professional-service-edit-form
+  .service-cover-editor {
+  min-width: 0;
+}
+
+.professional-service-edit-form
+  .service-cover-controls {
+  min-width: 0;
+}
+
+.professional-service-edit-form
+  .service-cover-actions {
+  width: 100%;
+}
+
+.professional-service-edit-form
+  .service-file-name {
+  max-width: 100%;
+}
+
+/* Grid dos serviços dentro da área profissional */
+
+@media (max-width: 1550px) {
+  .professional-main .admin-service-grid {
+    grid-template-columns: repeat(
+      2,
+      minmax(0, 1fr)
+    );
+  }
+
+  .professional-service-edit-form
+    .service-cover-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .professional-service-edit-form
+    .service-cover-editor
+    > :first-child {
+    width: 100%;
+    height: 170px;
+    min-height: 170px;
+  }
+
+  .professional-service-edit-form
+    .service-cover-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .professional-service-edit-form
+    .service-cover-actions
+    .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .professional-main .admin-service-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 650px) {
+  .professional-service-edit-form {
+    grid-template-columns: 1fr;
+  }
+
+  .professional-service-edit-form
+    > .service-cover-fieldset {
+    grid-column: 1;
+  }
+
+  .professional-service-edit-form
+    .service-cover-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .professional-service-edit-form
+    > div {
+    grid-column: 1;
+  }
+
+  .client-service-body{
+    padding: 13px
+  }
+}
+
+/* Nivelamento dos cards de serviços da cliente */
+
+.client-service-grid {
+  align-items: stretch;
+}
+
+.client-service-grid > article {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.client-service-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.client-service-body h3 {
+  display: -webkit-box;
+  min-height: 2.2em;
+  overflow: hidden;
+  line-height: 1.1;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.client-service-body > p {
+  display: -webkit-box;
+  min-height: 4.5em;
+  max-height: 4.5em;
+  margin: 10px 0 10px;
+  overflow: hidden;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Começo do rodapé alinhado dos cards */
+
+.client-service-body .service-provider {
+  margin-top: auto;
+}
+
+/* Mantém profissional com a mesma altura */
+
+.client-service-body .service-provider {
+  min-height: 58px;
+  align-items: center;
+}
+
+.client-service-body .service-price {
+  min-height: 32px;
+  margin: 8px 0;
+}
+
+.client-service-body > button {
+  min-height: 48px;
+  margin-top: 0;
 }
