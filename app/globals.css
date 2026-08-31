@@ -136,6 +136,7 @@
   padding: 48px 20px;
   border: 1px dashed var(--line);
   border-radius: 14px;
+  margin-top: 20px;
   text-align: center;
   color: var(--muted);
 }
@@ -892,12 +893,12 @@ img {
 .cta {
   text-align: center;
   padding: 105px 20px;
-  background: radial-gradient(circle at center, #7b3d75, #4c1c48);
+  background: radial-gradient(circle at center, var(--plum), var(--plum2));
   color: white;
 }
 
 .cta .eyebrow {
-  color: #e7bfe2;
+  color: var(--blush);
 }
 
 .cta h2 {
@@ -906,13 +907,15 @@ img {
 }
 
 .cta h2 em {
-  color: #eac9e5;
+  color: var(--blush);
 }
 
 .cta p {
-  font: 17px var(--font-display);
+  font: 17px var(--font-display) !important;
   opacity: 0.8;
+  color: var(--dark-text) !important;
 }
+
 
 .primary.light {
   background: white;
@@ -1550,6 +1553,7 @@ footer {
   align-items: center;
   color: var(--muted);
   font-size: 12px;
+  gap: 3px;
 }
 
 .stats article .icon {
@@ -1604,6 +1608,7 @@ footer {
   font-size: 12px;
   color: var(--muted);
   margin: 6px 0;
+  text-align: center;
 }
 
 .filters {
@@ -2320,6 +2325,7 @@ footer {
   gap: 8px;
 }
 
+
 .button,
 .admin-shell .button {
   display: inline-flex;
@@ -2330,6 +2336,7 @@ footer {
   border: 1px solid transparent;
   border-radius: 10px;
   padding: 9px 14px;
+  margin-top: 15px;
   font-size: 12px;
   font-weight: 750;
   line-height: 1.25;
@@ -2993,12 +3000,13 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .online {
   display: inline-block;
   background: #e9f5ef;
-  color: var(--green);
+  color: var(--plum);
   font-size: 12px;
   padding: 4px 8px;
   border-radius: 20px;
   margin-top: 10px;
 }
+
 
 .mini-stats {
   display: grid;
@@ -3123,7 +3131,8 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 .selected-admin-client > div { display: grid; gap: 3px; }
 .selected-admin-client b, .selected-admin-client span { font-size: 12px; overflow-wrap: anywhere; }
 .selected-admin-client span { color: var(--muted); }
-.selected-admin-client button { min-height: 38px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--plum); }
+.selected-admin-client button { min-height: 38px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--plum); padding: 5px;}
+
 .admin-flow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .admin-flow-grid label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
 .admin-flow-grid input, .admin-flow-grid select, .admin-flow-grid textarea { width: 100%; min-width: 0; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; color: inherit; font-size: 12px; }
@@ -6063,7 +6072,9 @@ small {
 .admin-shell h2 {
   font-size: 18px;
   margin-bottom: 10px;
+  text-align: center;
 }
+
 
 .admin-shell h3 {
   font-size: 16px;
@@ -7269,10 +7280,6 @@ small {
 
 .dark-theme :is(h1, h2, h3, h4, b, strong) {
   color: #fff7fc;
-}
-
-.dark-theme .eyebrow {
-  color: #e6aede;
 }
 
 /* .dark-theme :is(button, a) {
@@ -8599,6 +8606,9 @@ html {
     flex-direction: column;
   }
 
+  .panel-head {
+    margin-bottom: 12px;
+  }
   .history-row > div {
     min-width: 0;
     flex: 1;
@@ -8651,9 +8661,19 @@ html {
   .filter-reset {
     width: 100%;
   }
+
+  .admin-calendar-day{
+    height: 170px !important;
+    min-height: 170px !important;
+  }
 }
 
-/* Garantia final de legibilidade no ambiente administrativo */
+@media (max-width: 380px) {
+  .screen-card{
+    padding: 10px;
+  }
+}
+
 .admin-shell,
 .admin-shell * {
   font-size: 12px !important;
@@ -9361,9 +9381,6 @@ html {
   color: var(--dark-muted);
 }
 
-.dark-theme .eyebrow {
-  color: var(--dark-accent);
-}
 
 .dark-theme .public-header {
   background: #171217f5;
@@ -11580,6 +11597,7 @@ html {
   padding: 24px 4px;
   color: var(--muted);
   font-size: 12px;
+  text-align: center;
 }
 
 .payment-control button:disabled {
