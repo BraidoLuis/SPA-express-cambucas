@@ -63,10 +63,6 @@ export async function GET(request: Request) {
           process.env.RESEND_API_KEY?.trim() &&
             process.env.RESEND_FROM_EMAIL?.trim(),
         ),
-        whatsapp: Boolean(
-          process.env.WHATSAPP_ACCESS_TOKEN?.trim() &&
-            process.env.WHATSAPP_PHONE_NUMBER_ID?.trim(),
-        ),
       },
       {
         headers: {

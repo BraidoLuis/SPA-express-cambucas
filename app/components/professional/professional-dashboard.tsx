@@ -2070,19 +2070,82 @@ function completionForm(
             )}
           </div>
         )}
-        {section === "Notificações" && <div className="screen-card notification-settings">
-          <div className="screen-top"><div><h2>Como você quer ser avisada?</h2><p>Escolha os canais usados quando uma cliente confirmar, reagendar ou cancelar um horário.</p></div><button className="primary">Salvar preferências</button></div>
-          <div className="notification-channel-grid">
-            <label><span className="channel-icon">◉</span><div><b>Notificação no sistema</b><small>Aparece no sino e permanece no seu histórico.</small></div><input type="checkbox" defaultChecked /></label>
-            <label><span className="channel-icon">✉</span><div><b>E-mail pelo Resend</b><small>Receba os detalhes completos no seu e-mail profissional.</small></div><input type="checkbox" defaultChecked /></label>
-            <label><span className="channel-icon">◍</span><div><b>WhatsApp Business</b><small>Receba confirmação imediata no número cadastrado.</small></div><input type="checkbox" defaultChecked /></label>
+        {section === "Notificações" && (
+          <div className="screen-card notification-settings">
+            <div className="screen-top">
+              <div>
+                <h2>Como você será avisada?</h2>
+
+                <p>
+                  Estes são os canais utilizados para informar alterações
+                  relacionadas à sua agenda.
+                </p>
+              </div>
+            </div>
+
+            <div className="notification-channel-grid">
+              <article className="notification-fixed-channel">
+                <span className="channel-icon">◉</span>
+
+                <div>
+                  <b>Notificação no sistema</b>
+
+                  <small>
+                    Aparece no sino e permanece no seu histórico.
+                  </small>
+                </div>
+
+                <span className="notification-channel-active">
+                  Ativo
+                </span>
+              </article>
+
+              <article className="notification-fixed-channel">
+                <span className="channel-icon">✉</span>
+
+                <div>
+                  <b>E-mail</b>
+
+                  <small>
+                    Os detalhes são enviados ao seu e-mail profissional
+                    cadastrado.
+                  </small>
+                </div>
+
+                <span className="notification-channel-active">
+                  Ativo
+                </span>
+              </article>
+            </div>
+
+            <h3>Eventos que geram aviso</h3>
+
+            <div className="notification-event-list">
+              {[
+                "Novo agendamento confirmado",
+                "Reagendamento realizado",
+                "Cancelamento de horário",
+                "Lembrete da agenda do dia seguinte",
+              ].map((event) => (
+                <article key={event}>
+                  <span>
+                    <b>{event}</b>
+
+                    <small>
+                      A profissional recebe as informações compatíveis
+                      com este evento.
+                    </small>
+                  </span>
+
+                  <span className="notification-event-active">
+                    <b aria-hidden="true">✓</b>
+                    Ativo
+                  </span>
+                </article>
+              ))}
+            </div>
           </div>
-          <h3>Eventos que geram aviso</h3>
-          <div className="notification-event-list">
-            {["Novo agendamento confirmado","Reagendamento realizado","Cancelamento de horário","Lembrete da agenda do dia seguinte"].map((event)=><label key={event}><span><b>{event}</b><small>Cliente e profissional recebem informações compatíveis com o evento.</small></span><input type="checkbox" defaultChecked /></label>)}
-          </div>
-          <div className="integration-status"><span>✓</span><div><b>Integrações preparadas</b><small>Resend, WhatsApp Business Cloud API e notificações internas serão acionados pelo backend após a reserva ser gravada no Supabase.</small></div></div>
-        </div>}
+        )}
       </main>
 
       <ProfessionalDayAgendaDialog

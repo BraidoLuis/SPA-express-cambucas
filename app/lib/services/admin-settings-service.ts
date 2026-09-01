@@ -39,8 +39,6 @@ export type NotificationSettings = {
   inApp: boolean | null;
   clientEmail: boolean | null;
   professionalEmail: boolean | null;
-  clientWhatsapp: boolean | null;
-  professionalWhatsapp: boolean | null;
   reminder: boolean | null;
   reminderHours: number | null;
   cancellation: boolean | null;
@@ -103,8 +101,6 @@ export const defaultSpaSettings: SpaSettings = {
     inApp: true,
     clientEmail: false,
     professionalEmail: false,
-    clientWhatsapp: false,
-    professionalWhatsapp: false,
     reminder: false,
     reminderHours: 24,
     cancellation: true,
@@ -112,6 +108,55 @@ export const defaultSpaSettings: SpaSettings = {
     paymentConfirmed: true,
   },
 };
+
+function normalizeNotificationSettings(
+  value: unknown,
+): NotificationSettings {
+  const stored =
+    typeof value === "object" &&
+    value !== null
+      ? (value as Partial<NotificationSettings>)
+      : {};
+
+  return {
+    inApp:
+      stored.inApp ??
+      defaultSpaSettings.notifications.inApp,
+
+    clientEmail:
+      stored.clientEmail ??
+      defaultSpaSettings.notifications.clientEmail,
+
+    professionalEmail:
+      stored.professionalEmail ??
+      defaultSpaSettings.notifications
+        .professionalEmail,
+
+    reminder:
+      stored.reminder ??
+      defaultSpaSettings.notifications.reminder,
+
+    reminderHours:
+      stored.reminderHours ??
+      defaultSpaSettings.notifications
+        .reminderHours,
+
+    cancellation:
+      stored.cancellation ??
+      defaultSpaSettings.notifications
+        .cancellation,
+
+    newAppointment:
+      stored.newAppointment ??
+      defaultSpaSettings.notifications
+        .newAppointment,
+
+    paymentConfirmed:
+      stored.paymentConfirmed ??
+      defaultSpaSettings.notifications
+        .paymentConfirmed,
+  };
+}
 
 export async function getAdminSettings(): Promise<SpaSettings> {
   const { data, error } = await createClient()
@@ -144,10 +189,10 @@ export async function getAdminSettings(): Promise<SpaSettings> {
       ...defaultSpaSettings.bookingRules,
       ...data.booking_rules,
     },
-    notifications: {
-      ...defaultSpaSettings.notifications,
-      ...data.notifications,
-    },
+    notifications:
+      normalizeNotificationSettings(
+        data.notifications,
+      ),
   } as SpaSettings;
 }
 
@@ -208,7 +253,6 @@ export async function getAccessUsers(): Promise<AccessUser[]> {
 
 export type ProviderStatus = {
   email: boolean;
-  whatsapp: boolean;
 };
 
 export async function getProviderStatus(): Promise<ProviderStatus> {
@@ -238,6 +282,5 @@ export async function getProviderStatus(): Promise<ProviderStatus> {
 
   return {
     email: data.email === true,
-    whatsapp: data.whatsapp === true,
   };
 }

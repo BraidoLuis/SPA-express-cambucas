@@ -17,8 +17,6 @@ const notificationLabels: Record<string, string> = {
   inApp: "Notificações dentro do sistema",
   clientEmail: "Enviar e-mail para clientes",
   professionalEmail: "Enviar e-mail para profissionais",
-  clientWhatsapp: "Enviar WhatsApp para clientes",
-  professionalWhatsapp: "Enviar WhatsApp para profissionais",
   reminder: "Enviar lembrete antes do atendimento",
   cancellation: "Notificar cancelamentos",
   newAppointment: "Notificar novos agendamentos",
@@ -68,10 +66,10 @@ export function AdminSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
-  const [providers, setProviders] = useState<ProviderStatus>({
-    email: false,
-    whatsapp: false,
-  });
+  const [providers, setProviders] =
+    useState<ProviderStatus>({
+      email: false,
+    });
 
   useEffect(() => {
     let active = true;
@@ -81,7 +79,6 @@ export function AdminSettingsSection() {
       getAccessUsers(),
       getProviderStatus().catch(() => ({
         email: false,
-        whatsapp: false,
       })),
     ])
       .then(([loadedSettings, loadedUsers, loadedProviders]) => {
@@ -381,8 +378,7 @@ export function AdminSettingsSection() {
 
                     <small>
                       Os horários são calculados conforme a duração
-                      de cada serviço, com 10 minutos livres entre
-                      clientes.
+                      de cada serviço.
                     </small>
                   </div>
                   <label>
@@ -447,11 +443,6 @@ export function AdminSettingsSection() {
                   {providers.email
                     ? "Provedor conectado"
                     : "Aguardando configuração do provedor"}
-                  {" · "}
-                  WhatsApp:{" "}
-                  {providers.whatsapp
-                    ? "Provedor conectado"
-                    : "Aguardando configuração do provedor"}
                 </p>
 
                 <div className="notification-options">
@@ -460,13 +451,8 @@ export function AdminSettingsSection() {
                       const emailUnavailable =
                         key.toLowerCase().includes("email") &&
                         !providers.email;
-
-                      const whatsappUnavailable =
-                        key.toLowerCase().includes("whatsapp") &&
-                        !providers.whatsapp;
-
-                      const disabled =
-                        emailUnavailable || whatsappUnavailable;
+                        
+                      const disabled = emailUnavailable;
 
                       return (
                         <label
