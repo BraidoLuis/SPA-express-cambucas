@@ -70,23 +70,8 @@ export async function registerClient(
       },
     });
 
-  if (error) throw error;
-
-  if (auth.user) {
-    const { error: preferencesError } =
-    await supabase
-      .from("notification_preferences")
-      .upsert({
-        profile_id: auth.user.id,
-        email_enabled:
-          data.emailNotifications,
-        whatsapp_enabled: false,
-        in_app_enabled: false,
-      });
-
-    if (preferencesError) {
-      throw preferencesError;
-    }
+  if (error) {
+    throw error;
   }
 
   return {
