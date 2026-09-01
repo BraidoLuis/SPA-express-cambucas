@@ -43,26 +43,32 @@ export function SignUpForm({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+
     const validation = validateClientSignup(form);
     setErrors(validation);
 
-    if (Object.keys(validation).length) return;
+    if (Object.keys(validation).length) {
+      return;
+    }
 
     setSubmitting(true);
     setServerError("");
 
     try {
       await registerClient(form);
-      onSuccess();
     } catch (error) {
       setServerError(
         error instanceof Error
           ? error.message
           : "Não foi possível criar a conta.",
       );
-    } finally {
+
       setSubmitting(false);
+      return;
     }
+
+    setSubmitting(false);
+    onSuccess();
   }
 
   return (
