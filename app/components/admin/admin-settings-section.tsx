@@ -373,14 +373,6 @@ export function AdminSettingsSection() {
                       }
                     />
                   </label>
-                  <div className="booking-rule-information">
-                    <b>Intervalo entre atendimentos</b>
-
-                    <small>
-                      Os horários são calculados conforme a duração
-                      de cada serviço.
-                    </small>
-                  </div>
                   <label>
                     <input
                       type="checkbox"

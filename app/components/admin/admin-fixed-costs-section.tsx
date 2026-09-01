@@ -170,7 +170,7 @@ export function AdminFixedCostsSection() {
           <h2>Custos fixos</h2>
           <p>Despesas recorrentes usadas nos relatórios financeiros.</p>
         </div>
-        <button className="primary" onClick={() => open()}>
+        <button className="primary" onClick={() => open()} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
           <Plus /> Novo custo
         </button>
       </div>
