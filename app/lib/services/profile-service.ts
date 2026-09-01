@@ -103,7 +103,6 @@ export async function updateClientProfileSettings(
       email_enabled:
         settings.emailNotifications,
       in_app_enabled: false,
-      whatsapp_enabled: false,
 
       updated_at: new Date().toISOString(),
     });

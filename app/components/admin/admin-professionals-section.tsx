@@ -682,13 +682,18 @@ function ProfessionalDetails({
 
         <section>
           <h3>Notificações</h3>
+
           {details.notificationPreferences ? (
             <p>
-              E-mail: {details.notificationPreferences.email ? "sim" : "não"}
+              E-mail:{" "}
+              {details.notificationPreferences.email
+                ? "sim"
+                : "não"}
               <br />
-              WhatsApp: {details.notificationPreferences.whatsapp ? "sim" : "não"}
-              <br />
-              No app: {details.notificationPreferences.inApp ? "sim" : "não"}
+              No sistema:{" "}
+              {details.notificationPreferences.inApp
+                ? "sim"
+                : "não"}
             </p>
           ) : (
             <p>Preferências não disponíveis.</p>

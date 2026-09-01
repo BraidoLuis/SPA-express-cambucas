@@ -696,13 +696,14 @@ function ClientDetails({
       </section>
 
       <section className="client-detail-preferences">
-        <h3>Preferências de notificação</h3>
+        <h3>Preferência de notificação</h3>
+
         <p>
           {details.preferences
-            ? `Aplicativo: ${details.preferences.inApp ? "sim" : "não"} · E-mail: ${
+            ? `E-mail: ${
                 details.preferences.email ? "sim" : "não"
-              } · WhatsApp: ${details.preferences.whatsapp ? "sim" : "não"}`
-            : "Não disponíveis."}
+              }`
+            : "Não disponível."}
         </p>
       </section>
     </div>

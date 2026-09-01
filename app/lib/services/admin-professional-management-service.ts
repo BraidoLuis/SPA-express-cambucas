@@ -49,7 +49,6 @@ export type AdminProfessionalDetails = AdminProfessional & {
   }>;
   notificationPreferences: {
     email: boolean;
-    whatsapp: boolean;
     inApp: boolean;
   } | null;
 };
@@ -247,7 +246,7 @@ export async function getAdminProfessionalDetails(
     person.profileId
       ? supabase
           .from("notification_preferences")
-          .select("email_enabled,whatsapp_enabled,in_app_enabled")
+          .select("email_enabled,in_app_enabled")
           .eq("profile_id", person.profileId)
           .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -284,7 +283,6 @@ export async function getAdminProfessionalDetails(
     notificationPreferences: preferences.data
       ? {
           email: preferences.data.email_enabled,
-          whatsapp: preferences.data.whatsapp_enabled,
           inApp: preferences.data.in_app_enabled,
         }
       : null,

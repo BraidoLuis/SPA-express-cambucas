@@ -42,7 +42,9 @@ export type AdminClientDetails = AdminClient & {
   birthDate: string | null;
   clientNotes: string | null;
   appointments: AdminClientAppointment[];
-  preferences: { email: boolean; whatsapp: boolean; inApp: boolean } | null;
+  preferences: {
+    email: boolean;
+  } | null;
 };
 
 type SummaryAppointment = {
@@ -140,7 +142,7 @@ export async function getAdminClientDetails(
       .order("start_at", { ascending: false }),
     supabase
       .from("notification_preferences")
-      .select("email_enabled,whatsapp_enabled,in_app_enabled")
+      .select("email_enabled")
       .eq("profile_id", client.id)
       .maybeSingle(),
   ]);
@@ -185,8 +187,6 @@ export async function getAdminClientDetails(
     preferences: preferences.data
       ? {
           email: preferences.data.email_enabled,
-          whatsapp: preferences.data.whatsapp_enabled,
-          inApp: preferences.data.in_app_enabled,
         }
       : null,
   };
