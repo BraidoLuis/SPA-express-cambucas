@@ -58,7 +58,15 @@ function ServiceScheduling({
   const [confirmed, setConfirmed] = useState(false);
   const [appointmentId, setAppointmentId] = useState("");
   const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  type BookingErrorType =
+    | "same-day"
+    | "future-limit"
+    | "availability"
+    | "generic";
+
   const [bookingError, setBookingError] = useState("");
+  const [bookingErrorType, setBookingErrorType] =
+    useState<BookingErrorType>("generic");
   const [catalogFilter, setCatalogFilter] = useState("Todos");
   const [professionalFilter, setProfessionalFilter] = useState("all");
   const [catalog, setCatalog] = useState<Service[]>([]);
@@ -146,30 +154,100 @@ function ServiceScheduling({
     availabilityReload,
   ]);
   async function confirmAppointment() {
-    if (!selected?.id || !selected.professionalId || !selectedSlot) return;
-    setBookingSubmitting(true); setBookingError("");
+    if (
+      !selected?.id ||
+      !selected.professionalId ||
+      !selectedSlot
+    ) {
+      return;
+    }
+
+    setBookingSubmitting(true);
+    setBookingError("");
+    setBookingErrorType("generic");
+
     try {
-      const id = await createClientAppointment({ professionalId: selected.professionalId, serviceId: selected.id, slotStart: selectedSlot.start });
-      setAppointmentId(id); setConfirmed(true); await onAppointmentCreated();
+      const id = await createClientAppointment({
+        professionalId: selected.professionalId,
+        serviceId: selected.id,
+        slotStart: selectedSlot.start,
+      });
+
+      setAppointmentId(id);
+      setConfirmed(true);
+
+      await onAppointmentCreated();
     } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "";
+      let message = "";
 
-        const expectedError = [
-          "não está mais disponível",
-          "acabou de ser reservado",
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (
+        typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof (error as { message?: unknown }).message ===
+          "string"
+      ) {
+        message = (error as { message: string }).message;
+      }
+
+      const normalizedMessage =
+        message.toLocaleLowerCase("pt-BR");
+
+      const isSameProfessionalDay =
+        normalizedMessage.includes(
           "já possui um horário ativo",
-          "limite de 3 agendamentos futuros",
-        ].some((text) => message.includes(text));
-
-        setBookingError(
-          expectedError
-            ? message
-            : "Não foi possível confirmar o agendamento. Tente novamente.",
         );
 
-        setAvailabilityReload((value) => value + 1);
-      } finally { setBookingSubmitting(false); }
+      const isFutureLimit =
+        normalizedMessage.includes(
+          "limite de 3 agendamentos futuros",
+        );
+
+      const isUnavailable =
+        normalizedMessage.includes(
+          "não está mais disponível",
+        ) ||
+        normalizedMessage.includes(
+          "acabou de ser reservado",
+        ) ||
+        normalizedMessage.includes(
+          "horário selecionado está ocupado",
+        );
+
+      if (isSameProfessionalDay) {
+        setBookingErrorType("same-day");
+        setBookingError(
+          "Já existe um agendamento ativo com esta profissional na data selecionada. Escolha outro dia ou consulte seus agendamentos.",
+        );
+      } else if (isFutureLimit) {
+        setBookingErrorType("future-limit");
+        setBookingError(
+          "Você já possui três agendamentos futuros ativos. Cancele um deles ou aguarde a realização de um atendimento antes de marcar outro.",
+        );
+      } else if (isUnavailable) {
+        setBookingErrorType("availability");
+        setBookingError(
+          "Este horário acabou de ficar indisponível. Selecione outro horário para continuar.",
+        );
+
+        /*
+        * Recarrega somente quando a disponibilidade mudou.
+        * Erros de limite precisam permanecer visíveis.
+        */
+        setAvailabilityReload(
+          (value) => value + 1,
+        );
+      } else {
+        setBookingErrorType("generic");
+        setBookingError(
+          "Não foi possível confirmar o agendamento. Tente novamente.",
+        );
+      }
+    } finally {
+      setBookingSubmitting(false);
+    }
   }
 
   const whatsappUrl =
@@ -425,7 +503,34 @@ function ServiceScheduling({
                   </small>
                 </section>
               )}
-            {bookingError && <div className="booking-error">{bookingError}</div>}
+            {bookingError && (
+              <div
+                className={`booking-error booking-error--${bookingErrorType}`}
+                role="alert"
+                aria-live="assertive"
+              >
+                <span
+                  className="booking-error-icon"
+                  aria-hidden="true"
+                >
+                  !
+                </span>
+
+                <div>
+                  <strong>
+                    {bookingErrorType === "same-day"
+                      ? "Você já possui um horário neste dia"
+                      : bookingErrorType === "future-limit"
+                        ? "Limite de agendamentos atingido"
+                        : bookingErrorType === "availability"
+                          ? "Horário indisponível"
+                          : "Não foi possível agendar"}
+                  </strong>
+
+                  <p>{bookingError}</p>
+                </div>
+              </div>
+            )}
             <div className="schedule-summary">
               <div>
                 <span>DATA</span>

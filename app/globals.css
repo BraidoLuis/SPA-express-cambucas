@@ -1711,7 +1711,7 @@ footer {
 }
 
 .confirmado {
-  color: #fff;
+  color: #fff !important;
 }
 
 .pendente {
@@ -3622,9 +3622,10 @@ button:disabled { cursor: not-allowed; opacity: .56; }
   font-size: 12px;
 }
 
+
 .next-appointment {
   margin-top: 25px;
-  background: linear-gradient(120deg, #562150, #743a6d);
+  background: linear-gradient(120deg, var(--plum), var(--plum2)) !important;
   color: white;
   border-radius: 20px;
   padding: 25px;
@@ -3659,7 +3660,7 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 }
 
 .next-appointment .eyebrow {
-  color: #d7a9d3;
+  color: white !important;
 }
 
 .next-appointment h2 {
@@ -3669,19 +3670,18 @@ button:disabled { cursor: not-allowed; opacity: .56; }
 
 .next-appointment p {
   font-size: 12px;
-  color: #d8c7d5;
+  color: var(--blush);
 }
 
 .next-appointment > div > div {
   display: flex;
   gap: 16px;
   font-size: 12px;
-  color: #c7b5c4;
 }
+
 
 .appointment-buttons {
   display: flex !important;
-  flex-direction: column;
   gap: 5px !important;
 }
 
@@ -15239,4 +15239,83 @@ html {
 .client-service-body > button {
   min-height: 48px;
   margin-top: 0;
+}
+
+.booking-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 15px 16px;
+  border: 1px solid #e2aeb9;
+  border-radius: 14px;
+  background: #fff4f6;
+  color: #832f43;
+  text-align: left;
+}
+
+.booking-error-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: #a63e55;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.booking-error > div {
+  display: grid;
+  gap: 4px;
+}
+
+.booking-error strong {
+  color: inherit;
+  font-size: 13px;
+}
+
+.booking-error p {
+  margin: 0;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.booking-error--same-day,
+.booking-error--future-limit {
+  border-color: #e1c36f;
+  background: #fff9e8;
+  color: #765817;
+}
+
+.booking-error--same-day
+  .booking-error-icon,
+.booking-error--future-limit
+  .booking-error-icon {
+  background: #c59a2f;
+}
+
+.dark-theme .booking-error {
+  border-color: #7b4451;
+  background: #3b2028;
+  color: #ffc2ce;
+}
+
+.dark-theme .booking-error--same-day,
+.dark-theme .booking-error--future-limit {
+  border-color: #806a35;
+  background: #352e1d;
+  color: #f4d98b;
+}
+
+.dark-theme .booking-error--same-day
+  .booking-error-icon,
+.dark-theme .booking-error--future-limit
+  .booking-error-icon {
+  background: #a98228;
+  color: #fff8df;
 }
