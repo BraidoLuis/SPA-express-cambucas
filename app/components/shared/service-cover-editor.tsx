@@ -1,7 +1,11 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { serviceCoverMegabytes, validateServiceCover, type CoverImageChange } from "../../lib/services/service-cover-image-service";
+import {
+  serviceCoverMegabytes,
+  validateServiceCover,
+  type CoverImageChange,
+} from "../../lib/services/service-cover-image-service";
 import { ServiceCoverImage } from "./service-cover-image";
 import { ImagePlus, RotateCcw, Trash2 } from "lucide-react";
 
@@ -40,13 +44,24 @@ export function ServiceCoverEditor({
   return (
     <fieldset className="service-cover-fieldset">
       <legend>Imagem de capa</legend>
+
       <div className="service-cover-editor">
-        <ServiceCoverImage src={previewUrl || (!removed ? currentUrl : null)} alt={serviceName || "serviço"} />
+        <ServiceCoverImage
+          src={previewUrl || (!removed ? currentUrl : null)}
+          alt={serviceName || "serviço"}
+        />
+
         <div className="service-cover-controls">
           <div className="service-file-row">
-            <label className="button button--outline service-cover-picker" htmlFor={inputId} tabIndex={disabled ? -1 : 0}>
-              <ImagePlus aria-hidden="true" /> {file || currentUrl ? "Trocar imagem" : "Selecionar imagem"}
+            <label
+              className="button button--outline service-cover-picker"
+              htmlFor={inputId}
+              tabIndex={disabled ? -1 : 0}
+            >
+              <ImagePlus aria-hidden="true" />{" "}
+              {file || currentUrl ? "Trocar imagem" : "Selecionar imagem"}
             </label>
+
             <input
               className="visually-hidden-file"
               id={inputId}
@@ -56,9 +71,12 @@ export function ServiceCoverEditor({
               onChange={(event) => {
                 const selected = event.target.files?.[0];
                 if (!selected) return;
+
                 try {
                   validateServiceCover(selected);
+
                   revokePreview(previewUrl);
+
                   const nextPreview = URL.createObjectURL(selected);
                   setPreviewUrl(nextPreview);
                   setFile(selected);
@@ -67,17 +85,58 @@ export function ServiceCoverEditor({
                   onError("");
                 } catch (error) {
                   event.currentTarget.value = "";
-                  onError(error instanceof Error ? error.message : "Imagem inválida.");
+                  onError(
+                    error instanceof Error ? error.message : "Imagem inválida."
+                  );
                 }
               }}
             />
-            <span className="service-file-name" title={file?.name}>{file?.name || (currentUrl && !removed ? "Imagem atual" : "Nenhum arquivo selecionado")}</span>
+
+            <span className="service-file-name" title={file?.name}>
+              {file?.name ||
+                (currentUrl && !removed ? "Imagem atual" : "Nenhum arquivo selecionado")}
+            </span>
           </div>
-          <small>{file ? `${serviceCoverMegabytes(file.size)} MB de 3 MB · JPG, PNG ou WEBP.` : "JPG, PNG ou WEBP, até 3 MB."}</small>
+
+          <small>
+            {file
+              ? `${serviceCoverMegabytes(file.size)} MB de 3 MB · JPG, PNG ou WEBP.`
+              : "JPG, PNG ou WEBP, até 3 MB."}
+          </small>
+
           <div className="service-cover-actions">
-            {file && <button type="button" className="button button--ghost" disabled={disabled} onClick={() => clearSelection()}><RotateCcw aria-hidden="true" /> Cancelar nova seleção</button>}
-            {!file && currentUrl && !removed && <button type="button" className="button button--danger-ghost" disabled={disabled} onClick={() => clearSelection({ kind: "remove" })}><Trash2 aria-hidden="true" /> Remover imagem</button>}
-            {removed && currentUrl && <button type="button" className="button button--ghost" disabled={disabled} onClick={() => clearSelection()}><RotateCcw aria-hidden="true" /> Manter imagem atual</button>}
+            {file && (
+              <button
+                type="button"
+                className="button button--ghost"
+                disabled={disabled}
+                onClick={() => clearSelection()}
+              >
+                <RotateCcw aria-hidden="true" /> Cancelar nova seleção
+              </button>
+            )}
+
+            {!file && currentUrl && !removed && (
+              <button
+                type="button"
+                className="button button--danger-ghost"
+                disabled={disabled}
+                onClick={() => clearSelection({ kind: "remove" })}
+              >
+                <Trash2 aria-hidden="true" /> Remover imagem
+              </button>
+            )}
+
+            {removed && currentUrl && (
+              <button
+                type="button"
+                className="button button--ghost"
+                disabled={disabled}
+                onClick={() => clearSelection()}
+              >
+                <RotateCcw aria-hidden="true" /> Manter imagem atual
+              </button>
+            )}
           </div>
         </div>
       </div>
