@@ -5,7 +5,6 @@ export type ClientSignupData = {
   password: string;
   confirmPassword: string;
   emailNotifications: boolean;
-  whatsappNotifications: boolean;
   privacyAccepted: boolean;
 };
 
@@ -28,6 +27,9 @@ export function validateClientSignup(data: ClientSignupData): SignupErrors {
   if (data.password.length < 8 || !/[A-Z]/.test(data.password) || !/[a-z]/.test(data.password) || !/\d/.test(data.password)) errors.password = "Use 8 caracteres, com maiúscula, minúscula e número.";
   if (!data.confirmPassword) errors.confirmPassword = "Confirme sua senha.";
   else if (data.confirmPassword !== data.password) errors.confirmPassword = "As senhas precisam ser iguais.";
-  if (!data.privacyAccepted) errors.privacyAccepted = "Você precisa aceitar o uso dos dados para criar a conta.";
+  if (!data.privacyAccepted) {
+    errors.privacyAccepted =
+      "Você precisa concordar com os Termos de Uso e estar ciente da Política de Privacidade.";
+  }
   return errors;
 }

@@ -41,25 +41,56 @@ export async function updatePassword(password: string) {
   if (error) throw error;
 }
 
-export async function registerClient(data: ClientSignupData) {
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return { demo: true };
-  const supabase = createClient();
-  const { data: auth, error } = await supabase.auth.signUp({
-    email: data.email.trim().toLowerCase(),
-    password: data.password,
-    options: {
-      data: {
-        full_name: data.fullName.trim(),
-        phone: `55${normalizeBrazilianPhone(data.phone)}`,
-        role: "client",
-        email_notifications: data.emailNotifications,
-        whatsapp_notifications: data.whatsappNotifications,
-      },
-    },
-  });
-  if (error) throw error;
-  if (auth.user) {
-    await supabase.from("notification_preferences").upsert({ profile_id: auth.user.id, email_enabled: data.emailNotifications, whatsapp_enabled: data.whatsappNotifications, in_app_enabled: true });
+export async function registerClient(
+  data: ClientSignupData,
+) {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return { demo: true };
   }
-  return { demo: false, user: auth.user };
+
+  const supabase = createClient();
+
+  const { data: auth, error } =
+    await supabase.auth.signUp({
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+      options: {
+        data: {
+          full_name: data.fullName.trim(),
+          phone: `55${normalizeBrazilianPhone(
+            data.phone,
+          )}`,
+          role: "client",
+          email_notifications:
+            data.emailNotifications,
+        },
+      },
+    });
+
+  if (error) throw error;
+
+  if (auth.user) {
+    const { error: preferencesError } =
+    await supabase
+      .from("notification_preferences")
+      .upsert({
+        profile_id: auth.user.id,
+        email_enabled:
+          data.emailNotifications,
+        whatsapp_enabled: false,
+        in_app_enabled: false,
+      });
+
+    if (preferencesError) {
+      throw preferencesError;
+    }
+  }
+
+  return {
+    demo: false,
+    user: auth.user,
+  };
 }

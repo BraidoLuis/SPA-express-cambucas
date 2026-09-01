@@ -17,7 +17,6 @@ const initialData: ClientSignupData = {
   password: "",
   confirmPassword: "",
   emailNotifications: true,
-  whatsappNotifications: true,
   privacyAccepted: false,
 };
 
@@ -118,7 +117,7 @@ export function SignUpForm({
             </label>
 
             <label>
-              WhatsApp
+              Celular
               <div className={`login-input ${errors.phone ? "invalid" : ""}`}>
                 <span>☏</span>
                 <input
