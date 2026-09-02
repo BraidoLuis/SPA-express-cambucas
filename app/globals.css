@@ -4439,11 +4439,12 @@ small {
 }
 
 .client-portal > main {
-  max-width: 1180px;
+  max-width: 1400px;
   padding-top: 55px;
 }
 
 .client-welcome {
+  
   padding: 0 8px 22px;
 }
 

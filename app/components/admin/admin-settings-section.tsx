@@ -373,10 +373,25 @@ export function AdminSettingsSection() {
                       }
                     />
                   </label>
-                  <label>
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexDirection: "row",
+                      cursor: "pointer",
+                    }}
+                  >
                     <input
                       type="checkbox"
-                      checked={Boolean(settings.bookingRules.allowSameDay)}
+                      style={{
+                        width: "auto",
+                        margin: 0,
+                        flexShrink: 0,
+                      }}
+                      checked={Boolean(
+                        settings.bookingRules.allowSameDay,
+                      )}
                       onChange={(event) =>
                         setSettings({
                           ...settings,
@@ -386,12 +401,26 @@ export function AdminSettingsSection() {
                           },
                         })
                       }
-                    />{" "}
-                    Permitir no mesmo dia
+                    />
+                    <span>Permitir no mesmo dia</span>
                   </label>
-                  <label>
+
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      flexDirection: "row",
+                      cursor: "pointer",
+                    }}
+                  >
                     <input
                       type="checkbox"
+                      style={{
+                        width: "auto",
+                        margin: 0,
+                        flexShrink: 0,
+                      }}
                       checked={Boolean(
                         settings.bookingRules.cancellationEnabled,
                       )}
@@ -400,13 +429,17 @@ export function AdminSettingsSection() {
                           ...settings,
                           bookingRules: {
                             ...settings.bookingRules,
-                            cancellationEnabled: event.target.checked,
+                            cancellationEnabled:
+                              event.target.checked,
                           },
                         })
                       }
-                    />{" "}
-                    Aplicar prazo mínimo de cancelamento
+                    />
+                    <span>
+                      Aplicar prazo mínimo de cancelamento
+                    </span>
                   </label>
+
                   <label className="wide">
                     Texto sobre pagamento
                     <textarea

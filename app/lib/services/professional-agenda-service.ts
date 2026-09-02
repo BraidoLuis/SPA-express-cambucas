@@ -130,16 +130,63 @@ export async function updateProfessionalAppointmentStatus(
   status: ProfessionalAppointmentStatus,
   reason?: string,
 ) {
-  const { error } = await createClient().rpc(
+  const supabase = createClient();
+
+  const { error } = await supabase.rpc(
     "update_professional_appointment_status",
     {
       p_appointment_id: appointmentId,
       p_status: status,
-      p_reason: reason || null,
+      p_reason:
+        reason?.trim() || null,
     },
   );
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
+  /*
+   * Confirmação, conclusão e ausência não
+   * utilizam o e-mail de cancelamento.
+   */
+  if (status !== "cancelled") {
+    return;
+  }
+
+  /*
+   * O cancelamento já foi salvo pelo RPC.
+   * Uma falha no Resend não deve desfazer
+   * a alteração no agendamento.
+   */
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      await fetch(
+        "/api/notifications/appointment",
+        {
+          method: "POST",
+          headers: {
+            "content-type":
+              "application/json",
+            authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            appointmentId,
+          }),
+        },
+      );
+    }
+  } catch {
+    /*
+     * A notificação permanece pendente
+     * no banco para outra tentativa.
+     */
+  }
 }
 
 export async function completeProfessionalAppointment(

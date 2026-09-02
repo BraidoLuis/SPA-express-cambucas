@@ -151,15 +151,56 @@ export async function getClientAppointments(): Promise<ClientAppointment[]> {
     });
 }
 
-export async function cancelClientAppointment(appointmentId: string) {
-  const { error } = await createClient()
+export async function cancelClientAppointment(
+  appointmentId: string,
+) {
+  const supabase = createClient();
+
+  const { error } = await supabase
     .from("appointments")
     .update({
       status: "cancelled",
       cancelled_at: new Date().toISOString(),
-      cancellation_reason: "Cancelado pela cliente",
+      cancellation_reason:
+        "Cancelado pela cliente",
     })
     .eq("id", appointmentId);
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
+  /*
+   * O cancelamento já foi salvo no Supabase.
+   * Uma eventual falha no Resend não deve
+   * desfazer o cancelamento.
+   */
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      await fetch(
+        "/api/notifications/appointment",
+        {
+          method: "POST",
+          headers: {
+            "content-type":
+              "application/json",
+            authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            appointmentId,
+          }),
+        },
+      );
+    }
+  } catch {
+    /*
+     * A notificação continuará pendente
+     * no banco para outra tentativa.
+     */
+  }
 }
