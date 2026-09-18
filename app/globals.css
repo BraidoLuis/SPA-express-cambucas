@@ -5437,10 +5437,6 @@ small {
   filter: saturate(1.08);
 }
 
-.service-card .service-body button {
-  transition: background 0.25s ease, color 0.25s ease, transform 0.25s ease;
-}
-
 .service-card:hover .service-body button {
   transform: translateY(-2px);
 }
@@ -5865,7 +5861,7 @@ small {
 
 .client-media-carousel button {
   border: 0;
-  background: none;
+  background: white;
   color: var(--plum);
   padding: 0;
   font-weight: 700;
@@ -15521,4 +15517,100 @@ html {
   color: var(--plum);
   font-size: 12px;
   font-weight: 700;
+}
+
+.client-media-asset {
+  position: relative;
+  overflow: hidden;
+}
+
+.client-media-carousel .showcase-play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+
+  margin: 0;
+  padding: 0;
+
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    #e4bf6b,
+    #c9973f
+  );
+  border: 1px solid rgba(255, 255, 255, 0.78);
+  border-radius: 50%;
+
+  box-shadow:
+    0 12px 30px rgba(74, 47, 16, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+
+  opacity: 1;
+  visibility: visible;
+  cursor: pointer;
+
+  transform: translate(-50%, -50%);
+  transition:
+    transform 180ms ease,
+    filter 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.client-media-carousel .showcase-play-button:hover {
+  color: #fff;
+  background: linear-gradient(
+    145deg,
+    #edca7d,
+    #d2a047
+  );
+
+  filter: brightness(1.04);
+  transform: translate(-50%, -50%) scale(1.08);
+
+  box-shadow:
+    0 15px 36px rgba(74, 47, 16, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.client-media-carousel .showcase-play-button:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.client-media-carousel .showcase-play-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 4px;
+}
+
+.client-media-carousel .showcase-play-button svg {
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+
+  color: currentColor;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+.client-media-asset > span {
+  z-index: 6;
+}
+
+@media (max-width: 720px) {
+  .client-media-carousel .showcase-play-button {
+    width: 56px;
+    height: 56px;
+  }
+
+  .client-media-carousel .showcase-play-button svg {
+    width: 24px;
+    height: 24px;
+  }
 }

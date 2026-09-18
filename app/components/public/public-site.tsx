@@ -367,8 +367,8 @@ export function PublicSite({
               ) : (
                 <div className="trust">
                   <div className="avatars">
-                    <span>EC</span>
-                    <span>DB</span>
+                    <span>NA</span>
+                    <span>CR</span>
                     <span>+</span>
                   </div>
 
