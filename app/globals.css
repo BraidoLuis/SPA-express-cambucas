@@ -15614,3 +15614,173 @@ html {
     height: 24px;
   }
 }
+
+.login-box .google-login-button {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  margin: 0;
+  padding: 12px 20px;
+
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(63, 50, 40, 0.2);
+  border-radius: 14px;
+
+  box-shadow: 0 5px 16px rgba(42, 30, 20, 0.06);
+
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.login-box .google-login-button:hover:not(:disabled) {
+  background: #fff;
+  border-color: rgba(201, 151, 63, 0.58);
+
+  box-shadow:
+    0 8px 22px rgba(42, 30, 20, 0.1);
+
+  transform: translateY(-1px);
+}
+
+.login-box .google-login-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-box .google-login-button:focus-visible {
+  outline: 3px solid rgba(201, 151, 63, 0.32);
+  outline-offset: 3px;
+}
+
+.login-box .google-login-button:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.login-box .google-login-button svg {
+  display: block;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+}
+
+[data-theme="dark"]
+  .login-box
+  .google-login-button,
+.dark
+  .login-box
+  .google-login-button {
+  color: #f8f3eb;
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dark"]
+  .login-box
+  .google-login-button:hover:not(:disabled),
+.dark
+  .login-box
+  .google-login-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(232, 197, 118, 0.62);
+}
+
+@media (max-width: 720px) {
+  .login-box .google-login-button {
+    min-height: 50px;
+    padding-inline: 16px;
+    border-radius: 12px;
+  }
+}
+
+.phone-completion-panel {
+  position: relative;
+}
+
+.phone-completion-theme {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  z-index: 3;
+}
+
+.phone-completion-card {
+  width: min(100%, 560px);
+}
+
+.phone-completion-logout {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.phone-completion-logout svg {
+  width: 17px;
+  height: 17px;
+}
+
+.phone-completion-account {
+  display: grid;
+  gap: 4px;
+
+  margin: 22px 0;
+  padding: 14px 16px;
+
+  border: 1px solid rgba(201, 151, 63, 0.22);
+  border-radius: 14px;
+  background: rgba(201, 151, 63, 0.07);
+}
+
+.phone-completion-account strong {
+  font-size: 0.95rem;
+}
+
+.phone-completion-account span {
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.82rem;
+  opacity: 0.68;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.phone-completion-field {
+  display: grid;
+  gap: 8px;
+}
+
+.phone-completion-field .login-input svg {
+  flex: 0 0 19px;
+  width: 19px;
+  height: 19px;
+  opacity: 0.65;
+}
+
+.phone-completion-note {
+  display: block;
+  margin: 10px 0 20px;
+  line-height: 1.55;
+  opacity: 0.68;
+}
+
+@media (max-width: 720px) {
+  .phone-completion-theme {
+    top: 14px;
+    right: 14px;
+  }
+
+  .phone-completion-card {
+    padding-top: 64px;
+  }
+}
