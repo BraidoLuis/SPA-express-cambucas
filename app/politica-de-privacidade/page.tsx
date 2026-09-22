@@ -14,7 +14,7 @@ export default function PrivacyPolicyPage() {
       eyebrow="SEUS DADOS, NOSSO CUIDADO"
       title="Política de Privacidade"
       description="Esta política explica quais dados utilizamos, por que eles são necessários e quais direitos você possui."
-      lastUpdated="29 de agosto de 2026"
+      lastUpdated="22 de setembro de 2026"
     >
       <nav
         className="legal-index"
@@ -46,9 +46,9 @@ export default function PrivacyPolicyPage() {
         </p>
 
         <p>
-          A responsável pelo tratamento é Eliane. Os dados de
-          identificação e contato do estabelecimento estão
-          disponíveis ao final desta página.
+          A responsável pelo tratamento é Eliane Cristina Braido.
+          Os dados de identificação e contato do estabelecimento
+          estão disponíveis ao final desta página.
         </p>
       </section>
 
@@ -64,8 +64,13 @@ export default function PrivacyPolicyPage() {
           <li>Número de telefone e WhatsApp.</li>
           <li>Endereço de e-mail.</li>
           <li>
-            Credenciais de autenticação protegidas pelo serviço de
-            autenticação.
+            Quando o acesso pelo Google for utilizado, nome,
+            endereço de e-mail, identificador da conta e imagem de
+            perfil, quando disponibilizada pelo provedor.
+          </li>
+          <li>
+            Credenciais, identificadores e informações de sessão
+            processadas pelo serviço de autenticação.
           </li>
           <li>
             Informações do agendamento, como serviço, profissional,
@@ -75,10 +80,18 @@ export default function PrivacyPolicyPage() {
             Preferências de comunicação e registros de confirmações.
           </li>
           <li>
-            Dados técnicos essenciais, como registros de acesso,
-            falhas e informações necessárias à segurança.
+            Dados técnicos essenciais, como endereço IP, navegador,
+            registros de acesso, falhas e informações necessárias à
+            segurança.
           </li>
         </ul>
+
+        <p>
+          Quando o cadastro for realizado pelo Google, o número de
+          telefone será solicitado no primeiro acesso para completar
+          o perfil da cliente. O SPA Express Cambucás não recebe nem
+          armazena a senha utilizada na conta Google.
+        </p>
 
         <div className="legal-notice">
           <strong>Dados de saúde</strong>
@@ -99,6 +112,15 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>Criar e administrar a conta da cliente.</li>
           <li>Autenticar o acesso à plataforma.</li>
+          <li>
+            Permitir o acesso opcional por meio da conta Google e
+            associar os dados fornecidos pelo provedor ao perfil da
+            cliente.
+          </li>
+          <li>
+            Solicitar e manter os dados necessários para completar o
+            cadastro realizado por meio de um provedor externo.
+          </li>
           <li>
             Consultar horários e criar, confirmar, alterar ou
             cancelar agendamentos.
@@ -176,8 +198,8 @@ export default function PrivacyPolicyPage() {
 
         <p>
           Para crianças menores de 12 anos, a conta e o agendamento
-          deverão ser realizados diretamente pelo responsável
-          legal, utilizando os dados de contato do responsável.
+          deverão ser realizados diretamente pelo responsável legal,
+          utilizando os dados de contato do responsável.
         </p>
 
         <p>
@@ -204,20 +226,25 @@ export default function PrivacyPolicyPage() {
 
         <ul>
           <li>
-            <b>Supabase:</b> autenticação, banco de dados e
-            infraestrutura relacionada ao sistema.
+            <b>Supabase:</b> autenticação, gerenciamento de sessões,
+            banco de dados e infraestrutura relacionada ao sistema.
           </li>
           <li>
-            <b>Vercel:</b> hospedagem e disponibilização da
-            aplicação.
+            <b>Vercel:</b> hospedagem, disponibilização da aplicação
+            e processamento de registros técnicos de acesso.
+          </li>
+          <li>
+            <b>Google:</b> autenticação da identidade quando a
+            própria pessoa escolhe utilizar a opção de acesso com
+            Google.
           </li>
           <li>
             <b>Resend:</b> envio de e-mails operacionais e
             confirmações.
           </li>
           <li>
-            <b>Google Maps:</b> exibição do mapa e da localização na
-            página pública.
+            <b>Google Maps:</b> exibição do mapa e da localização
+            após a pessoa decidir carregar o conteúdo externo.
           </li>
           <li>
             <b>WhatsApp:</b> somente quando a própria pessoa decide
@@ -286,6 +313,15 @@ export default function PrivacyPolicyPage() {
           prazo necessário ao cumprimento de obrigações legais e à
           proteção de direitos.
         </p>
+
+        <p>
+          A revogação da autorização concedida ao SPA Express
+          Cambucás nas configurações da conta Google impede novas
+          autorizações pelo provedor, mas não exclui automaticamente
+          a conta ou os dados já mantidos pela plataforma. A exclusão
+          deverá ser solicitada pelos canais de contato informados
+          nesta política.
+        </p>
       </section>
 
       <section id="direitos">
@@ -324,22 +360,82 @@ export default function PrivacyPolicyPage() {
         <h2>10. Cookies e tecnologias locais</h2>
 
         <p>
-          A plataforma poderá utilizar recursos técnicos essenciais
-          para autenticação, segurança, manutenção da sessão e
-          funcionamento das páginas.
+          A plataforma utiliza cookies e tecnologias semelhantes
+          estritamente necessários para autenticação, segurança,
+          manutenção da sessão e funcionamento dos recursos de
+          agendamento.
+        </p>
+
+        <p>Entre os recursos armazenados no navegador estão:</p>
+
+        <ul>
+          <li>
+            Informações essenciais de autenticação e sessão
+            administradas pelo Supabase.
+          </li>
+          <li>
+            A preferência entre tema claro e escuro, armazenada por
+            meio da chave <code>spa-theme</code>.
+          </li>
+          <li>
+            O registro de que o aviso sobre cookies foi visualizado,
+            armazenado por meio da chave{" "}
+            <code>spaexpress-cookie-notice-v1</code>.
+          </li>
+        </ul>
+
+        <p>
+          Quando a pessoa escolhe entrar com Google, ela é
+          direcionada ao serviço de autenticação do Google, que
+          poderá utilizar cookies e outras tecnologias conforme suas
+          próprias políticas.
         </p>
 
         <p>
-          A preferência entre tema claro e escuro é armazenada
-          localmente no navegador por meio da chave{" "}
-          <code>spa-theme</code>.
+          O conteúdo incorporado do Google Maps somente será
+          carregado depois que a pessoa selecionar a opção
+          “Carregar mapa”. Ao carregar esse conteúdo, o Google poderá
+          processar endereço IP, informações do navegador e utilizar
+          cookies ou tecnologias próprias.
         </p>
 
         <p>
-          Esses recursos não são utilizados pelo SPA Express
-          Cambucás para criar perfis publicitários comportamentais.
-          Serviços externos incorporados, como o Google Maps,
-          poderão possuir políticas próprias.
+          A escolha de carregar o mapa não é armazenada
+          permanentemente pelo SPA Express Cambucás e poderá ser
+          solicitada novamente em um novo acesso.
+        </p>
+
+        <p>
+          Atualmente, o SPA Express Cambucás não utiliza Google
+          Analytics, Meta Pixel, cookies de publicidade ou
+          tecnologias destinadas à criação de perfis
+          comportamentais.
+        </p>
+
+        <p>
+          Caso tecnologias opcionais de análise ou publicidade sejam
+          adicionadas futuramente, esta política e o aviso de cookies
+          serão atualizados, e as escolhas necessárias serão
+          apresentadas antes de sua ativação.
+        </p>
+
+        <p>
+          A exclusão ou o bloqueio de recursos essenciais pelo
+          navegador poderá afetar o login, a permanência da sessão e
+          outras funcionalidades da plataforma.
+        </p>
+
+        <p>
+          Mais informações sobre o tratamento realizado pelo Google
+          estão disponíveis na{" "}
+          <a
+            href="https://policies.google.com/privacy"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Política de Privacidade do Google
+          </a>
+          .
         </p>
       </section>
 

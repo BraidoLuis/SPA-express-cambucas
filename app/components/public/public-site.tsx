@@ -4,6 +4,7 @@ import { services as fallbackServices, type Service } from "../../lib/spa-data";
 import { getClientCatalog } from "../../lib/services/catalog-service";
 import { Icon, Logo, ThemeToggle } from "../shared/spa-ui";
 import { ServiceCoverImage } from "../shared/service-cover-image";
+import { GoogleMapEmbed } from "./google-map-embed";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -693,14 +694,7 @@ export function PublicSite({
             Abrir rota no Google Maps →
           </a>
         </div>
-        <div className="map-frame">
-          <iframe
-            title="Localização do SPA Express Cambucás na Estação Cambucás"
-            src="https://www.google.com/maps?q=Esta%C3%A7%C3%A3o%20Cambuc%C3%A1s%2C%20Avenida%20Dedo%20de%20Deus%2C%201200%2C%20Centro%2C%20Guapimirim%2C%20RJ%2C%2025940-000&output=embed"
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-          />
-        </div>
+        <GoogleMapEmbed />
       </section>
       <footer id="contato">
         <div className="footer-top">

@@ -14,9 +14,12 @@ export default function TermsOfUsePage() {
       eyebrow="TRANSPARÊNCIA E CONFIANÇA"
       title="Termos de Uso"
       description="Estes termos apresentam as regras para utilização do site, criação de conta e realização de agendamentos."
-      lastUpdated="29 de agosto de 2026"
+      lastUpdated="22 de setembro de 2026"
     >
-      <nav className="legal-index" aria-label="Índice dos Termos de Uso">
+      <nav
+        className="legal-index"
+        aria-label="Índice dos Termos de Uso"
+      >
         <strong>Nesta página</strong>
 
         <a href="#aceitacao">1. Aceitação dos termos</a>
@@ -40,9 +43,10 @@ export default function TermsOfUsePage() {
         </p>
 
         <p>
-          Ao criar uma conta, realizar um agendamento ou utilizar as
-          funcionalidades da plataforma, a pessoa usuária declara
-          que leu e concorda com estes termos e que está ciente da{" "}
+          Ao criar uma conta, entrar por meio de um provedor externo,
+          realizar um agendamento ou utilizar as funcionalidades da
+          plataforma, a pessoa usuária declara que leu e concorda
+          com estes termos e que está ciente da{" "}
           <Link href="/politica-de-privacidade">
             Política de Privacidade
           </Link>
@@ -50,8 +54,8 @@ export default function TermsOfUsePage() {
         </p>
 
         <p>
-          Caso não concorde com alguma condição, a pessoa usuária
-          não deverá concluir o cadastro ou utilizar a plataforma.
+          Caso não concorde com alguma condição, a pessoa usuária não
+          deverá concluir o cadastro ou utilizar a plataforma.
         </p>
       </section>
 
@@ -74,6 +78,13 @@ export default function TermsOfUsePage() {
           O uso do site não garante a disponibilidade permanente de
           determinado serviço, profissional, data ou horário.
         </p>
+
+        <p>
+          Os valores apresentados correspondem às informações
+          disponíveis no momento da consulta. O pagamento é
+          realizado diretamente no estabelecimento, conforme as
+          condições informadas durante o atendimento.
+        </p>
       </section>
 
       <section id="cadastro">
@@ -81,20 +92,73 @@ export default function TermsOfUsePage() {
 
         <p>
           Para utilizar determinadas funcionalidades, será
-          necessário informar dados verdadeiros, completos e
-          atualizados, como nome, telefone, e-mail e senha.
+          necessário criar uma conta e informar dados verdadeiros,
+          completos e atualizados, como nome, telefone, e-mail e
+          senha.
         </p>
 
         <p>
-          A pessoa usuária é responsável por manter sua senha
-          confidencial e por não compartilhar o acesso à conta com
-          terceiros não autorizados.
+          A conta poderá ser criada por meio de e-mail e senha ou
+          pelo acesso opcional com uma conta Google.
         </p>
 
         <p>
-          Caso identifique acesso indevido, perda da senha ou
-          atividade suspeita, deverá entrar em contato com o SPA
-          Express Cambucás assim que possível.
+          Quando a opção de acesso com Google for utilizada, a pessoa
+          autoriza o envio ao serviço de autenticação das informações
+          básicas necessárias para identificar sua conta, como nome,
+          endereço de e-mail, identificador e imagem de perfil,
+          quando disponibilizada.
+        </p>
+
+        <p>
+          O SPA Express Cambucás não recebe nem armazena a senha da
+          conta Google. A autenticação é realizada diretamente pelo
+          Google e pelo serviço de autenticação utilizado pela
+          plataforma.
+        </p>
+
+        <p>
+          No primeiro acesso realizado pelo Google, será necessário
+          informar um número de telefone válido para completar o
+          cadastro e permitir comunicações relacionadas aos
+          agendamentos.
+        </p>
+
+        <p>
+          A pessoa usuária é responsável por manter suas
+          credenciais confidenciais e por não compartilhar o acesso
+          à conta com terceiros não autorizados. Essa
+          responsabilidade também se aplica à conta Google utilizada
+          para entrar na plataforma.
+        </p>
+
+        <p>
+          Caso identifique acesso indevido, perda da senha,
+          comprometimento da conta Google ou atividade suspeita,
+          deverá entrar em contato com o SPA Express Cambucás assim
+          que possível.
+        </p>
+
+        <p>
+          A indisponibilidade temporária do Google, do serviço de
+          autenticação ou de outros fornecedores poderá afetar
+          momentaneamente o acesso à conta.
+        </p>
+
+        <p>
+          Revogar a autorização concedida ao SPA Express Cambucás
+          nas configurações da conta Google poderá impedir novos
+          acessos por esse método, mas não excluirá automaticamente
+          a conta ou os dados mantidos na plataforma.
+        </p>
+
+        <p>
+          A exclusão da conta deverá ser solicitada pelos canais de
+          contato informados na{" "}
+          <Link href="/politica-de-privacidade">
+            Política de Privacidade
+          </Link>
+          .
         </p>
 
         <p>
@@ -195,6 +259,10 @@ export default function TermsOfUsePage() {
 
         <ul>
           <li>Fornecer informações verdadeiras e atualizadas.</li>
+          <li>
+            Manter atualizado o telefone utilizado para comunicações
+            relacionadas aos agendamentos.
+          </li>
           <li>Utilizar a plataforma somente para fins legítimos.</li>
           <li>Não tentar acessar contas ou áreas restritas.</li>
           <li>
@@ -246,6 +314,20 @@ export default function TermsOfUsePage() {
             Política de Privacidade
           </Link>
           .
+        </p>
+
+        <p>
+          A plataforma utiliza recursos técnicos essenciais para
+          autenticação, segurança, manutenção da sessão e
+          funcionamento dos agendamentos.
+        </p>
+
+        <p>
+          Conteúdos externos, como o Google Maps, somente são
+          carregados após uma escolha da própria pessoa usuária.
+          Quando carregados, esses serviços estarão sujeitos também
+          aos termos e às políticas de seus respectivos
+          fornecedores.
         </p>
 
         <p>

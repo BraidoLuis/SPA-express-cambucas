@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useEffect,
   useState,
@@ -572,6 +573,26 @@ export function LoginScreen({
                     : "Continuar com Google"}
                 </span>
               </button>
+
+              <p className="oauth-legal">
+                Ao continuar com Google, você concorda com os{" "}
+                <Link
+                  href="/termos-de-uso"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Termos de Uso
+                </Link>{" "}
+                e declara estar ciente da{" "}
+                <Link
+                  href="/politica-de-privacidade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Política de Privacidade
+                </Link>
+                .
+              </p>
 
               <p className="signup" style={{ marginTop: '10px', marginBottom: '0' }}>
                 Primeira vez por aqui?{" "}

@@ -1459,10 +1459,9 @@ function completionForm(
                 </button>
               </form>
             )}
-            <div className="month-summary"><span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span><span>
-              <b>10 minutos de intervalo</b> entre atendimentos
-              · horários calculados conforme a duração de cada serviço
-            </span></div>
+            <div className="month-summary" style={{ width: "fit-content" }}>
+              <span>Visualizando <b>{monthDate.toLocaleDateString("pt-BR", {month:"long",year:"numeric"})}</b></span>
+            </div>
             {scheduleBlocksLoading && (
               <p className="schedule-block-loading">
                 Carregando bloqueios...

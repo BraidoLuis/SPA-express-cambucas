@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CookieBanner } from "./components/shared/cookie-banner";
 import { Montserrat, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
@@ -90,7 +91,7 @@ export const metadata: Metadata = {
       {
         url: "/favicon.png",
         type: "image/png",
-        sizes: "2048x2048",
+        sizes: "500x500",
       },
     ],
     shortcut: "/favicon.png",
@@ -98,7 +99,7 @@ export const metadata: Metadata = {
       {
         url: "/favicon.png",
         type: "image/png",
-        sizes: "2048x2048",
+        sizes: "500x500",
       },
     ],
   },
@@ -154,6 +155,7 @@ export default function RootLayout({
         />
 
         {children}
+        <CookieBanner />
       </body>
     </html>
   );
