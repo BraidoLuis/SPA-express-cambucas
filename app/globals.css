@@ -16078,3 +16078,36 @@ html[data-theme="dark"] .oauth-legal a,
 body.dark .oauth-legal a {
   color: #dfbd94;
 }
+
+.client-cancellation-notice {
+  grid-column: 1 / -1;
+  display: block;
+  margin-top: 4px;
+  color: #9a623f;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.appointment-buttons .client-cancellation-notice {
+  max-width: 230px;
+  text-align: right;
+}
+
+.client-booking button:disabled,
+.appointment-buttons button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+html.dark .client-cancellation-notice,
+html[data-theme="dark"] .client-cancellation-notice,
+body.dark .client-cancellation-notice {
+  color: #e0ad87;
+}
+
+@media (max-width: 640px) {
+  .appointment-buttons .client-cancellation-notice {
+    max-width: none;
+    text-align: left;
+  }
+}

@@ -23,6 +23,47 @@ import {
   buildBookingGapWhatsAppUrl,
 } from "../../lib/appointment-whatsapp";
 
+const CLIENT_CANCELLATION_NOTICE_HOURS = 2;
+
+const CLIENT_CANCELLATION_NOTICE_MS =
+  CLIENT_CANCELLATION_NOTICE_HOURS *
+  60 *
+  60 *
+  1000;
+
+function canClientCancelAppointment(
+  startAt: string,
+  referenceTime = Date.now(),
+) {
+  const appointmentTime = new Date(startAt).getTime();
+
+  return (
+    Number.isFinite(appointmentTime) &&
+    appointmentTime >
+      referenceTime +
+        CLIENT_CANCELLATION_NOTICE_MS
+  );
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof (error as { message?: unknown })
+      .message === "string"
+  ) {
+    return (error as { message: string })
+      .message;
+  }
+
+  return "";
+}
+
 function glideCarousel(element: HTMLDivElement | null, distance: number) {
   if (!element) return;
   const start = element.scrollLeft;
@@ -666,6 +707,9 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
   const [appointmentsError, setAppointmentsError] = useState("");
   const [cancellingId, setCancellingId] = useState("");
+  const [currentTime, setCurrentTime] = useState(
+    () => Date.now(),
+  );
   const [appointmentProfessional, setAppointmentProfessional] = useState("all");
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const [
@@ -680,13 +724,20 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
   const clientName = displayName;
   const firstName = clientName.split(" ")[0];
   const initials = clientName.split(" ").slice(0, 2).map((name) => name[0]).join("").toUpperCase();
-  const now = new Date();
+  const now = new Date(currentTime);
   const upcomingAppointments = appointments.filter((item) => new Date(item.start) > now && ["pending", "confirmed"].includes(item.status)).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   const historyAppointments = appointments.filter((item) => new Date(item.start) <= now || ["completed", "cancelled", "no_show"].includes(item.status)).sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
   const appointmentProfessionals = useMemo(() => Array.from(new Map(appointments.map((item) => [item.professionalId, { id: item.professionalId, name: item.professionalName }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [appointments]);
   const filteredUpcoming = upcomingAppointments.filter((item) => appointmentProfessional === "all" || item.professionalId === appointmentProfessional);
   const filteredHistory = historyAppointments.filter((item) => appointmentProfessional === "all" || item.professionalId === appointmentProfessional);
   const nextAppointment = upcomingAppointments[0];
+  const nextAppointmentCanBeCancelled =
+    nextAppointment
+      ? canClientCancelAppointment(
+          nextAppointment.start,
+          currentTime,
+        )
+      : false;
 
   async function loadAppointments() {
     setAppointmentsLoading(true); setAppointmentsError("");
@@ -697,21 +748,67 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
 
   useEffect(() => { queueMicrotask(() => void loadAppointments()); }, []);
 
-  async function cancelAppointment(item: ClientAppointment) {
-    setCancellingId(item.id);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30_000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  async function cancelAppointment(
+    item: ClientAppointment,
+  ) {
     setAppointmentsError("");
+
+    /*
+    * Validação visual. O banco continua sendo
+    * a validação definitiva.
+    */
+    if (
+      !canClientCancelAppointment(
+        item.start,
+        Date.now(),
+      )
+    ) {
+      setAppointmentsError(
+        "O prazo para cancelamento online terminou. Os cancelamentos devem ser realizados com mais de 2 horas de antecedência.",
+      );
+
+      return;
+    }
+
+    setCancellingId(item.id);
 
     try {
       await cancelClientAppointment(item.id);
       await loadAppointments();
-    } catch {
+    } catch (error) {
+      const message =
+        getErrorMessage(error).toLocaleLowerCase(
+          "pt-BR",
+        );
+
+      const cancellationDeadlineReached =
+        message.includes(
+          "cancelamento deve ser solicitado",
+        ) ||
+        message.includes(
+          "hora(s) de antecedência",
+        );
+
       setAppointmentsError(
-        "Não foi possível cancelar o agendamento.",
+        cancellationDeadlineReached
+          ? "O prazo para cancelamento online terminou. Os cancelamentos devem ser realizados com mais de 2 horas de antecedência."
+          : "Não foi possível cancelar o agendamento. Tente novamente.",
       );
     } finally {
       setCancellingId("");
     }
   }
+
   return (
     <div className="client-portal">
       {drawerOpen && <button type="button" className="client-drawer-backdrop" aria-label="Fechar menu" onClick={() => closeDrawer()} />}
@@ -782,7 +879,47 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 <div className="date-box"><b>{new Date(nextAppointment.start).getDate().toString().padStart(2, "0")}</b><span>{new Date(nextAppointment.start).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}</span></div>
                 <div><span className="eyebrow">PRÓXIMO AGENDAMENTO</span><h2>{nextAppointment.serviceName}</h2><p>{appointmentLongDate(nextAppointment.start)} às {appointmentTime(nextAppointment.start)} · com {nextAppointment.professionalName}</p><div><span>◷ {nextAppointment.duration} minutos</span><span>⌖ SPA Express Cambucás</span></div></div>
                 <em className="confirmado">{appointmentStatusLabel[nextAppointment.status]}</em>
-                <div className="appointment-buttons"><button onClick={() => setTab("Meus agendamentos")}>Detalhes</button><button disabled={cancellingId === nextAppointment.id} onClick={() => cancelAppointment(nextAppointment)}>{cancellingId === nextAppointment.id ? "Cancelando..." : "Cancelar"}</button></div>
+                <div className="appointment-buttons">
+                  <button
+                    onClick={() =>
+                      setTab("Meus agendamentos")
+                    }
+                  >
+                    Detalhes
+                  </button>
+
+                  <button
+                    disabled={
+                      cancellingId ===
+                        nextAppointment.id ||
+                      !nextAppointmentCanBeCancelled
+                    }
+                    title={
+                      nextAppointmentCanBeCancelled
+                        ? "Cancelar agendamento"
+                        : "O prazo de cancelamento online terminou"
+                    }
+                    onClick={() =>
+                      setAppointmentToCancel(
+                        nextAppointment,
+                      )
+                    }
+                  >
+                    {cancellingId ===
+                    nextAppointment.id
+                      ? "Cancelando..."
+                      : nextAppointmentCanBeCancelled
+                        ? "Cancelar"
+                        : "Prazo encerrado"}
+                  </button>
+
+                  {!nextAppointmentCanBeCancelled && (
+                    <small className="client-cancellation-notice">
+                      O cancelamento online está disponível
+                      somente até 2 horas antes do atendimento.
+                    </small>
+                  )}
+                </div>
               </section>
             ) : <div className="appointments-feedback empty"><b>Nenhum horário marcado</b><span>Escolha um serviço para reservar seu próximo momento.</span><button onClick={goServices}>Ver serviços</button></div>}
             {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
@@ -853,9 +990,10 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                     </summary>
 
                     <p>
-                      Quando o cancelamento estiver disponível,
-                      acesse Meus agendamentos e utilize o botão
-                      Cancelar no atendimento desejado.
+                      O cancelamento online pode ser realizado
+                      até 2 horas antes do atendimento. Acesse
+                      Meus agendamentos e utilize o botão
+                      Cancelar no horário desejado.
                     </p>
                   </details>
 
@@ -882,7 +1020,81 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
             <h2>Próximos horários</h2>
             <ProfessionalFilter options={appointmentProfessionals} value={appointmentProfessional} onChange={setAppointmentProfessional} className="appointment-professional-filter" />
             {appointmentsLoading && <div className="appointments-inline-empty">Carregando agendamentos...</div>}
-            {!appointmentsLoading && filteredUpcoming.map((item) => <div className="client-booking" key={item.id}><span>{appointmentDay(item.start)}</span><div><h3>{item.serviceName}</h3><p>às {appointmentTime(item.start)} · com {item.professionalName}</p><small>R$ {item.price.toFixed(2).replace(".", ",")} · pagamento {item.paymentStatus === "paid" ? "confirmado" : "no local"}</small></div><em className={item.status}>{appointmentStatusLabel[item.status]}</em><button onClick={goServices}>Agendar outro</button><button disabled={cancellingId === item.id} onClick={() => setAppointmentToCancel(item)}>{cancellingId === item.id ? "Cancelando..." : "Cancelar"}</button></div>)}
+            {!appointmentsLoading &&
+              filteredUpcoming.map((item) => {
+                const cancellationAvailable =
+                  canClientCancelAppointment(
+                    item.start,
+                    currentTime,
+                  );
+
+                return (
+                  <div
+                    className="client-booking"
+                    key={item.id}
+                  >
+                    <span>
+                      {appointmentDay(item.start)}
+                    </span>
+
+                    <div>
+                      <h3>{item.serviceName}</h3>
+
+                      <p>
+                        às {appointmentTime(item.start)} ·
+                        com {item.professionalName}
+                      </p>
+
+                      <small>
+                        R${" "}
+                        {item.price
+                          .toFixed(2)
+                          .replace(".", ",")}{" "}
+                        · pagamento{" "}
+                        {item.paymentStatus === "paid"
+                          ? "confirmado"
+                          : "no local"}
+                      </small>
+                    </div>
+
+                    <em className={item.status}>
+                      {appointmentStatusLabel[item.status]}
+                    </em>
+
+                    <button onClick={goServices}>
+                      Agendar outro
+                    </button>
+
+                    <button
+                      disabled={
+                        cancellingId === item.id ||
+                        !cancellationAvailable
+                      }
+                      title={
+                        cancellationAvailable
+                          ? "Cancelar agendamento"
+                          : "O prazo de cancelamento online terminou"
+                      }
+                      onClick={() =>
+                        setAppointmentToCancel(item)
+                      }
+                    >
+                      {cancellingId === item.id
+                        ? "Cancelando..."
+                        : cancellationAvailable
+                          ? "Cancelar"
+                          : "Prazo encerrado"}
+                    </button>
+
+                    {!cancellationAvailable && (
+                      <small className="client-cancellation-notice">
+                        O cancelamento online está disponível
+                        somente até 2 horas antes do atendimento.
+                      </small>
+                    )}
+                  </div>
+                );
+              })}
             {!appointmentsLoading && filteredUpcoming.length === 0 && <div className="appointments-inline-empty">{appointmentProfessional === "all" ? <>Você ainda não possui horários futuros. <button onClick={goServices}>Agendar agora</button></> : "Nenhum agendamento encontrado para esta profissional."}</div>}
             {appointmentsError && <div className="appointments-feedback error">{appointmentsError}<button onClick={loadAppointments}>Tentar novamente</button></div>}
           </div>
@@ -913,7 +1125,7 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 appointmentToCancel.start,
               )} às ${appointmentTime(
                 appointmentToCancel.start,
-              )}. O horário ficará disponível novamente.`
+              )}. O horário ficará disponível novamente. Cancelamentos online são permitidos somente com mais de 2 horas de antecedência.`
             : ""
         }
         confirmLabel="Cancelar agendamento"
