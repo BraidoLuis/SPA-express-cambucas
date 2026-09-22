@@ -1,0 +1,30 @@
+# SPA Express Cambucás
+
+> Site oficial do SPA Express Cambucás, espaço de estética, beleza, autocuidado e bem-estar localizado em Guapimirim, Rio de Janeiro. O site permite conhecer o estabelecimento, consultar serviços e realizar agendamentos.
+
+O SPA Express Cambucás atende de segunda-feira a sábado, das 08:00 às 20:00.
+
+Endereço: Avenida Dedo de Deus, 1200, Centro, Guapimirim, Rio de Janeiro, CEP 25940-000.
+
+Telefone: +55 21 97162-1509.
+
+Os agendamentos estão sujeitos à disponibilidade das profissionais e são realizados pelo site oficial. O pagamento é feito no local.
+
+Preços, serviços, horários disponíveis e demais condições podem mudar. Para informações atualizadas, consulte sempre o site oficial.
+
+Áreas administrativas, áreas profissionais e dados autenticados de clientes não fazem parte do conteúdo público do site.
+
+## Links principais
+
+- [Site oficial](https://www.spaexpresscambucas.com.br/): informações sobre o SPA, serviços e acesso ao agendamento.
+- [Mapa do site](https://www.spaexpresscambucas.com.br/sitemap.xml): lista das páginas públicas disponíveis.
+
+## Informações legais
+
+- [Termos de Uso](https://www.spaexpresscambucas.com.br/termos-de-uso): condições para utilização da plataforma e realização de agendamentos.
+- [Política de Privacidade](https://www.spaexpresscambucas.com.br/politica-de-privacidade): informações sobre coleta, tratamento e proteção de dados pessoais.
+
+## Perfis oficiais
+
+- [Instagram](https://www.instagram.com/estetica.spa.express/): perfil oficial do SPA Express Cambucás.
+- [Facebook](https://www.facebook.com/p/Spa-Express-cambucas-100063744964224/): página oficial do SPA Express Cambucás.
