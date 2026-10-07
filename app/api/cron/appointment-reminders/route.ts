@@ -1,3 +1,4 @@
+import { authorizeCron, redactCronSecret } from "../../../lib/server/cron-auth";
 import { createAdminClient } from "../../../../lib/supabase/admin";
 import { processAppointmentEmails } from "../../../lib/server/appointment-email-processor";
 
@@ -13,30 +14,11 @@ type FailedAppointment = {
   message: string;
 };
 
-function getBearerToken(
-  request: Request,
-): string | null {
-  const authorization =
-    request.headers.get("authorization");
-
-  if (
-    !authorization?.startsWith("Bearer ")
-  ) {
-    return null;
-  }
-
-  return (
-    authorization
-      .slice("Bearer ".length)
-      .trim() || null
-  );
-}
-
 function errorMessage(
   error: unknown,
 ): string {
   if (error instanceof Error) {
-    return error.message.slice(0, 500);
+    return redactCronSecret(error.message).slice(0, 500);
   }
 
   if (
@@ -45,7 +27,7 @@ function errorMessage(
     "message" in error &&
     typeof error.message === "string"
   ) {
-    return error.message.slice(0, 500);
+    return redactCronSecret(error.message).slice(0, 500);
   }
 
   return "Erro desconhecido.";
@@ -54,40 +36,10 @@ function errorMessage(
 export async function GET(
   request: Request,
 ) {
+  const authorizationError = authorizeCron(request);
+  if (authorizationError) return authorizationError;
+
   try {
-    const configuredSecret =
-      process.env.CRON_SECRET?.trim();
-
-    if (!configuredSecret) {
-      return Response.json(
-        {
-          error:
-            "CRON_SECRET não está configurado.",
-        },
-        {
-          status: 503,
-        },
-      );
-    }
-
-    const receivedSecret =
-      getBearerToken(request);
-
-    if (
-      !receivedSecret ||
-      receivedSecret !== configuredSecret
-    ) {
-      return Response.json(
-        {
-          error:
-            "Não autorizado.",
-        },
-        {
-          status: 401,
-        },
-      );
-    }
-
     const supabase =
       createAdminClient();
 
