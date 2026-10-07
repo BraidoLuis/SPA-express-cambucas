@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../lib/supabase/admin";
+import { processAppointmentCreatedEmails } from "../../../lib/server/appointment-email-processor";
 
 type Input = {
   clientId?: string;
@@ -13,6 +14,15 @@ type Slot = {
   slot_start: string;
   slot_end: string;
 };
+
+type NotificationResult =
+  | { status: "not_configured" | "failed" }
+  | {
+      status: "sent" | "partial" | "failed" | "skipped";
+      sent: number;
+      failed: number;
+      skipped: number;
+    };
 
 export async function POST(request: Request) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -46,7 +56,7 @@ export async function POST(request: Request) {
     .eq("id", auth.data.user.id)
     .single();
 
-  if (actor.error || actor.data.role !== "admin" || !actor.data.active) {
+  if (actor.error || !actor.data || actor.data.role !== "admin" || !actor.data.active) {
     return NextResponse.json(
       { error: "Apenas administradores ativos podem criar agendamentos." },
       { status: 403 }
@@ -170,5 +180,31 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ id: created.data.id }, { status: 201 });
+  const appointmentId = created.data.id;
+  let notification: NotificationResult;
+
+  // O trigger já criou a fila. Reutilizamos o processador, sem inserir notificações.
+  try {
+    const result = await processAppointmentCreatedEmails(appointmentId);
+
+    if (!result.configured) {
+      notification = { status: "not_configured" };
+    } else {
+      const sent = result.items.filter((item) => item.result === "sent").length;
+      const failed = result.items.filter((item) => item.result === "failed").length;
+      // Preferências desativadas e itens já em processamento não confirmam envio.
+      const skipped = result.items.length - sent - failed;
+      const status = sent > 0
+        ? failed > 0 || skipped > 0 ? "partial" : "sent"
+        : failed > 0 ? "failed" : "skipped";
+
+      notification = { status, sent, failed, skipped };
+    }
+  } catch {
+    // A reserva já foi criada: falhas de e-mail não podem incentivar outra criação.
+    notification = { status: "failed" };
+    console.error("Agendamento criado, mas o processamento de e-mails falhou.");
+  }
+
+  return NextResponse.json({ id: appointmentId, notification }, { status: 201 });
 }
