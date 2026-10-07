@@ -193,7 +193,6 @@ export function ProfessionalDashboard({
       ? "Dayanne"
       : "Eliane";
 
-  const isEliane = professional === "Eliane";
   const fullName = access.displayName;
 
   const initials = fullName

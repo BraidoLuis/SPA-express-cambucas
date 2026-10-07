@@ -78,8 +78,16 @@ export function LoginScreen({
   role,
   close,
   onLogin,
+  recovering = false,
+  oauthError = "",
+  recoveryError = "",
+  onPasswordUpdated,
 }: {
   role: "admin" | "client";
+  recovering?: boolean;
+  oauthError?: string;
+  recoveryError?: string;
+  onPasswordUpdated?: () => void;
   close: () => void;
   onLogin: (
     email: string,
@@ -87,14 +95,6 @@ export function LoginScreen({
   ) => Promise<LoginResult>;
 }) {
   const admin = role === "admin";
-
-  const recovering =
-    !admin &&
-    new URLSearchParams(
-      typeof window === "undefined"
-        ? ""
-        : window.location.search,
-    ).get("reset") === "1";
 
   const [show, setShow] = useState(false);
   const [creating, setCreating] =
@@ -114,7 +114,9 @@ export function LoginScreen({
   ] = useState(false);
   const [message, setMessage] =
     useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(() =>
+    recoveryError || (!admin && !recovering && oauthError ? oauthErrorMessage(oauthError) : ""),
+  );
 
   useEffect(() => {
     if (admin || recovering) {
@@ -131,10 +133,6 @@ export function LoginScreen({
     if (!oauthError) {
       return;
     }
-
-    setError(
-      oauthErrorMessage(oauthError),
-    );
 
     /*
      * Remove apenas o erro da URL, mantendo
@@ -246,11 +244,10 @@ export function LoginScreen({
         "Senha alterada. Você já pode entrar com a nova senha.",
       );
 
-      window.history.replaceState(
-        {},
-        "",
-        "?access=client",
-      );
+      window.history.replaceState({}, "", "?access=client");
+      setPassword("");
+      setConfirmPassword("");
+      onPasswordUpdated?.();
     } catch {
       setError(
         "O link expirou ou é inválido. Solicite uma nova recuperação.",

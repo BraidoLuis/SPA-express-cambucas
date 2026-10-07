@@ -64,25 +64,6 @@ function getErrorMessage(error: unknown) {
   return "";
 }
 
-function glideCarousel(element: HTMLDivElement | null, distance: number) {
-  if (!element) return;
-  const start = element.scrollLeft;
-  const target = start + distance;
-  const duration = 850;
-  const startedAt = performance.now();
-  const easeInOutCubic = (progress: number) =>
-    progress < 0.5
-      ? 4 * progress * progress * progress
-      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-  const animate = (now: number) => {
-    const progress = Math.min((now - startedAt) / duration, 1);
-    element.scrollLeft = start + (target - start) * easeInOutCubic(progress);
-    if (progress < 1) requestAnimationFrame(animate);
-  };
-
-  requestAnimationFrame(animate);
-}
 function ServiceScheduling({
   clientName,
   onAppointmentCreated,

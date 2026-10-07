@@ -4,7 +4,7 @@ Frontend em Next.js, React e TypeScript, organizado por domínio e preparado par
 
 ## Requisitos
 
-- Node.js 20.9 ou superior
+- Node.js 22 ou superior
 - Um projeto no Supabase
 - Conta no Resend para e-mails transacionais
 - Aplicativo configurado na Meta para WhatsApp Business Cloud API

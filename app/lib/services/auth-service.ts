@@ -1,4 +1,6 @@
 import { createClient } from "../../../lib/supabase/client";
+import type { Session } from "@supabase/supabase-js";
+import { resolvePortalAccount, type Portal } from "./portal-access";
 import {
   normalizeBrazilianPhone,
   type ClientSignupData,
@@ -29,8 +31,8 @@ export async function getProfile(
     .eq("id", userId)
     .single();
 
-  if (error) {
-    throw error;
+  if (error || !data) {
+    throw error || new Error("Perfil não encontrado.");
   }
 
   return data as AuthProfile;
@@ -39,29 +41,40 @@ export async function getProfile(
 export async function loginWithPassword(
   email: string,
   password: string,
+  portal: Portal,
+  isCurrent: () => boolean = () => true,
+  onPasswordSession: (session: Session | null) => void = () => undefined,
 ) {
   const supabase = createClient();
-
-  const { data, error } =
-    await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-
-  if (error) {
-    throw error;
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email.trim().toLowerCase(), password,
+  });
+  onPasswordSession(data.session);
+  if (error) throw error;
+  try {
+    if (!data.user || !data.session) throw new Error("Não foi possível identificar a conta.");
+    if (!isCurrent()) throw new Error("A tentativa de login foi interrompida.");
+    const profile = await getProfile(data.user.id);
+    if (!isCurrent()) throw new Error("A tentativa de login foi interrompida.");
+    const account = await resolvePortalAccount(profile, portal);
+    if (!isCurrent()) throw new Error("A tentativa de login foi interrompida.");
+    return { ...account, user: data.user, session: data.session };
+  } catch (profileError) {
+    await discardPasswordSession(data.session).catch(() => undefined);
+    throw profileError;
   }
+}
 
-  if (!data.user) {
-    throw new Error(
-      "Não foi possível identificar a conta.",
-    );
+export async function discardPasswordSession(session: Session | null) {
+  if (!session) return;
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  // Só encerra a sessão criada por esta tentativa, nunca uma conta mais recente.
+  if (data.session?.access_token === session.access_token) {
+    const { error: signOutError } = await supabase.auth.signOut({ scope: "local" });
+    if (signOutError) throw signOutError;
   }
-
-  return {
-    user: data.user,
-    profile: await getProfile(data.user.id),
-  };
 }
 
 export async function loginWithGoogle() {
@@ -115,8 +128,13 @@ export async function requestPasswordReset(
 export async function updatePassword(
   password: string,
 ) {
+  const supabase = createClient();
+  const { data, error: sessionError } = await supabase.auth.getUser();
+  if (sessionError || !data.user) {
+    throw sessionError || new Error("O link expirou ou é inválido.");
+  }
   const { error } =
-    await createClient().auth.updateUser({
+    await supabase.auth.updateUser({
       password,
     });
 

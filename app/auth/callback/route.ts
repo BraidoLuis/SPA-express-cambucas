@@ -59,9 +59,12 @@ export async function GET(request: Request) {
     );
 
   if (exchangeError || !authData.user) {
-    await supabase.auth
-      .signOut()
-      .catch(() => undefined);
+    // Uma troca que falhou pode deixar intacta uma sessão preexistente.
+    if (authData.session) {
+      await supabase.auth
+        .signOut({ scope: "local" })
+        .catch(() => undefined);
+    }
 
     return NextResponse.redirect(
       clientUrl(origin, "exchange"),

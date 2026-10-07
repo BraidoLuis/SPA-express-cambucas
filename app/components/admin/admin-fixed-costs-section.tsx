@@ -65,9 +65,17 @@ export function AdminFixedCostsSection() {
     }
   };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    // O carregamento inicial já começa em true; atualizações vêm da consulta.
+    void listFixedCosts()
+      .then((costs) => { if (!cancelled) setItems(costs); })
+      .catch((loadError: unknown) => {
+        if (!cancelled) setError(loadError instanceof Error
+          ? loadError.message : "Não foi possível carregar os custos.");
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const filtered = useMemo(
