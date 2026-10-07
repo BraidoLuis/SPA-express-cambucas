@@ -1,31 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useBrowserPreference, writeBrowserPreference } from "./browser-preferences";
 import { Cookie } from "lucide-react";
 
 const COOKIE_NOTICE_KEY = "spaexpress-cookie-notice-v1";
 
 export function CookieBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    try {
-      const acknowledged = window.localStorage.getItem(COOKIE_NOTICE_KEY);
-      setVisible(acknowledged !== "acknowledged");
-    } catch {
-      setVisible(true);
-    }
-  }, []);
+  const acknowledged = useBrowserPreference(COOKIE_NOTICE_KEY, "", "acknowledged");
+  const visible = acknowledged !== "acknowledged";
 
   function acknowledgeCookies() {
-    try {
-      window.localStorage.setItem(
-        COOKIE_NOTICE_KEY,
-        "acknowledged",
-      );
-    } finally {
-      setVisible(false);
-    }
+    writeBrowserPreference(COOKIE_NOTICE_KEY, "acknowledged");
   }
 
   if (!visible) {

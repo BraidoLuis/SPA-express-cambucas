@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, } from "react";
 import Image from "next/image";
+import { useBrowserPreference, writeBrowserPreference } from "./browser-preferences";
 import { Bell, Check, DollarSign, Moon, Sun, X } from "lucide-react";
 import {
   getMyInAppNotifications,
@@ -28,18 +29,12 @@ export function Logo({ compact = false }: { compact?: boolean }) {
 }
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    queueMicrotask(() => setDark(window.localStorage.getItem("spa-theme") === "dark"));
-  }, []);
+  const dark = useBrowserPreference("spa-theme", "light", "light") === "dark";
   useEffect(() => {
     document.documentElement.classList.toggle("dark-theme", dark);
   }, [dark]);
   function toggle() {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark-theme", next);
-    window.localStorage.setItem("spa-theme", next ? "dark" : "light");
+    writeBrowserPreference("spa-theme", dark ? "light" : "dark");
   }
   return (
     <button
@@ -101,21 +96,19 @@ export function NotificationBell({
 
   const centerRef = useRef<HTMLDivElement>(null);
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const notifications = await getMyInAppNotifications();
-      setItems(notifications);
-      setError("");
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
+  const loadNotifications = useCallback(() =>
+    getMyInAppNotifications()
+      .then((notifications) => {
+        setItems(notifications);
+        setError("");
+      })
+      .catch((loadError: unknown) => {
+        setError(loadError instanceof Error
           ? loadError.message
-          : "Não foi possível carregar as notificações.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+          : "Não foi possível carregar as notificações.");
+      })
+      .finally(() => setLoading(false)),
+  []);
 
   useEffect(() => {
     void loadNotifications();
