@@ -120,15 +120,33 @@ export async function GET(
         0,
       );
 
+    const acceptedEmails = processedResults.reduce(
+      (total, processingResult) => total + processingResult.items.filter(
+        (item) => item.providerAccepted === true || item.result === "sent",
+      ).length,
+      0,
+    );
+    const processingErrors = processedResults.reduce(
+      (total, processingResult) => total + processingResult.items.filter(
+        (item) => item.result === "error",
+      ).length,
+      0,
+    );
+    const emailConfigured = processedResults.every((item) => item.configured);
+
     return Response.json({
       ok:
         failedAppointments.length === 0 &&
-        failedEmails === 0,
+        failedEmails === 0 &&
+        processingErrors === 0 &&
+        emailConfigured,
       appointmentsFound:
         appointmentIds.length,
       appointmentsProcessed:
         processedResults.length,
       emailsSent: sentEmails,
+      emailsAccepted: acceptedEmails,
+      processingErrors,
       emailsFailed: failedEmails,
       failedAppointments,
       results: processedResults,

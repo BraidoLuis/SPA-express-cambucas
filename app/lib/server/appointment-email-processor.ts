@@ -52,8 +52,12 @@ type ProcessingItem = {
     | "sent"
     | "failed"
     | "cancelled"
-    | "skipped";
+    | "skipped"
+    | "error";
   providerId?: string;
+  providerAccepted?: boolean;
+  // Confirmação da atualização no banco, não apenas ausência de erro.
+  recorded?: boolean;
   message?: string;
 };
 
@@ -63,6 +67,44 @@ export type AppointmentEmailProcessingResult = {
   processed: number;
   items: ProcessingItem[];
 };
+
+type NotificationUpdate = {
+  status: EmailQueueRow["status"];
+  attempts?: number;
+  provider_id?: string | null;
+  error_message: string | null;
+  sent_at?: string | null;
+};
+
+// status + attempts identificam a fotografia reservada, sem usar timestamps como lease.
+async function updateNotification(
+  supabase: ReturnType<typeof createAdminClient>,
+  expected: Pick<EmailQueueRow, "id" | "status" | "attempts">,
+  update: NotificationUpdate,
+): Promise<"updated" | "stale" | "error"> {
+  try {
+    const { data, error } = await supabase
+      .from("notifications")
+      .update(update)
+      .eq("id", expected.id)
+      .eq("status", expected.status)
+      .eq("attempts", expected.attempts)
+      .select("id,status,attempts")
+      .maybeSingle();
+
+    if (error) return "error";
+    if (!data) return "stale";
+    if (
+      data.id !== expected.id ||
+      data.status !== update.status ||
+      data.attempts !== (update.attempts ?? expected.attempts)
+    ) return "error";
+
+    return "updated";
+  } catch {
+    return "error";
+  }
+}
 
 const SPA_LOGO_URL =
   "https://spaexpresscambucas.com.br/logo-spa.png";
@@ -379,30 +421,35 @@ export async function processAppointmentEmails(
           ? "professional"
           : "unknown";
 
-    if (audience === "unknown") {
-      await supabase
-        .from("notifications")
-        .update({
-          status: "failed",
-          attempts:
-            notification.attempts + 1,
-          error_message:
-            "Destinatário da notificação não reconhecido.",
-        })
-        .eq("id", notification.id);
+    const item = {
+      notificationId: notification.id,
+      recipientId: notification.recipient_id,
+      notificationType: notification.notification_type,
+      audience,
+    };
 
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "failed",
-        message:
-          "Destinatário não reconhecido.",
+    async function finishQueuedNotification(
+      status: "failed" | "cancelled",
+      message: string,
+    ) {
+      const updated = await updateNotification(supabase, notification, {
+        status,
+        attempts: status === "failed" ? notification.attempts + 1 : notification.attempts,
+        error_message: status === "failed" ? message : null,
       });
+      result.items.push({
+        ...item,
+        result: updated === "updated" ? status : updated === "stale" ? "skipped" : "error",
+        providerAccepted: false,
+        recorded: updated === "updated",
+        message: updated === "updated" ? message : updated === "stale"
+          ? "A notificação foi alterada por outra execução."
+          : "Não foi possível registrar o resultado da notificação.",
+      });
+    }
 
+    if (audience === "unknown") {
+      await finishQueuedNotification("failed", "Destinatário da notificação não reconhecido.");
       continue;
     }
 
@@ -455,30 +502,10 @@ export async function processAppointmentEmails(
           : false;
 
     if (!eventStillValid) {
-      await supabase
-        .from("notifications")
-        .update({
-          status: "cancelled",
-          error_message: null,
-        })
-        .eq("id", notification.id)
-        .in("status", [
-          "pending",
-          "failed",
-        ]);
-
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "cancelled",
-        message:
-          "O estado atual do agendamento não corresponde mais à notificação.",
-      });
-
+      await finishQueuedNotification(
+        "cancelled",
+        "O estado atual do agendamento não corresponde mais à notificação.",
+      );
       continue;
     }
 
@@ -501,17 +528,12 @@ export async function processAppointmentEmails(
 
     if (preferencesError) {
       result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "skipped",
-        message:
-          preferencesError.message,
+        ...item,
+        result: "error",
+        providerAccepted: false,
+        recorded: false,
+        message: "Não foi possível consultar as preferências de e-mail.",
       });
-
       continue;
     }
 
@@ -552,104 +574,41 @@ export async function processAppointmentEmails(
             preferences.reminder
           : false;
 
-    if (
-      !channelEnabled ||
-      !eventEnabled ||
-      !preferences.email_enabled
-    ) {
-      await supabase
-        .from("notifications")
-        .update({
-          status: "cancelled",
-          error_message: null,
-        })
-        .eq("id", notification.id)
-        .in("status", [
-          "pending",
-          "failed",
-        ]);
-
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "cancelled",
-        message:
-          "Envio desativado nas preferências.",
-      });
-
+    if (!channelEnabled || !eventEnabled || !preferences.email_enabled) {
+      await finishQueuedNotification("cancelled", "Envio desativado nas preferências.");
       continue;
     }
 
     if (!recipient.email.trim()) {
-      await supabase
-        .from("notifications")
-        .update({
-          status: "failed",
-          attempts:
-            notification.attempts + 1,
-          error_message:
-            "Destinatário sem endereço de e-mail.",
-        })
-        .eq("id", notification.id);
-
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "failed",
-        message:
-          "Destinatário sem endereço de e-mail.",
-      });
-
+      await finishQueuedNotification("failed", "Destinatário sem endereço de e-mail.");
       continue;
     }
 
-    const nextAttempt =
-      notification.attempts + 1;
+    const nextAttempt = notification.attempts + 1;
+    const claim = await updateNotification(supabase, notification, {
+      status: "processing",
+      attempts: nextAttempt,
+      error_message: null,
+    });
 
-    const {
-      data: claimedNotification,
-      error: claimError,
-    } = await supabase
-      .from("notifications")
-      .update({
-        status: "processing",
-        attempts: nextAttempt,
-        error_message: null,
-      })
-      .eq("id", notification.id)
-      .eq(
-        "status",
-        notification.status,
-      )
-      .select("id")
-      .maybeSingle();
-
-    if (
-      claimError ||
-      !claimedNotification
-    ) {
+    if (claim !== "updated") {
       result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "skipped",
-        message:
-          "A notificação já está sendo processada.",
+        ...item,
+        result: claim === "stale" ? "skipped" : "error",
+        providerAccepted: false,
+        recorded: false,
+        message: claim === "stale"
+          ? "A notificação foi alterada por outra execução."
+          : "Não foi possível reservar a notificação.",
       });
-
       continue;
     }
+
+    const claimedAttempt = {
+      id: notification.id,
+      status: "processing" as const,
+      attempts: nextAttempt,
+    };
 
     const title = isCancellation
       ? audience === "client"
@@ -798,87 +757,66 @@ export async function processAppointmentEmails(
           ? "appointment-reminder"
           : "appointment-created";
 
+    let providerId: string;
     try {
-      const {
-        data: emailData,
-        error: emailError,
-      } = await resend.emails.send(
+      const { data: emailData, error: emailError } = await resend.emails.send(
         {
           from,
-          to: [
-            recipient.email.trim(),
-          ],
+          to: [recipient.email.trim()],
           subject: title,
           html,
           text,
         },
-        {
-          idempotencyKey:
-            `${idempotencyPrefix}/${notification.id}`,
-        },
+        { idempotencyKey: `${idempotencyPrefix}/${notification.id}` },
       );
 
-      if (emailError) {
-        throw emailError;
+      if (emailError) throw emailError;
+      if (typeof emailData?.id !== "string" || !emailData.id.trim()) {
+        result.items.push({
+          ...item,
+          result: "error",
+          recorded: false,
+          message: "O provedor não retornou a identificação do envio.",
+        });
+        continue;
       }
-
-      const { error: sentUpdateError } =
-        await supabase
-          .from("notifications")
-          .update({
-            status: "sent",
-            provider_id:
-              emailData?.id ?? null,
-            error_message: null,
-            sent_at:
-              new Date().toISOString(),
-          })
-          .eq("id", notification.id)
-          .eq("status", "processing");
-
-      if (sentUpdateError) {
-        throw new Error(
-          `O e-mail foi aceito pelo provedor, mas o banco não registrou o envio: ${sentUpdateError.message}`,
-        );
-      }
-
-      result.processed += 1;
-
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "sent",
-        providerId: emailData?.id,
-      });
+      providerId = emailData.id;
     } catch (error) {
-      const message =
-        errorMessage(error);
-
-      await supabase
-        .from("notifications")
-        .update({
-          status: "failed",
-          error_message: message,
-          sent_at: null,
-        })
-        .eq("id", notification.id)
-        .eq("status", "processing");
-
-      result.items.push({
-        notificationId: notification.id,
-        recipientId:
-          notification.recipient_id,
-        notificationType:
-          notification.notification_type,
-        audience,
-        result: "failed",
-        message,
+      const updated = await updateNotification(supabase, claimedAttempt, {
+        status: "failed",
+        error_message: errorMessage(error),
+        sent_at: null,
       });
+      result.items.push({
+        ...item,
+        result: updated === "updated" ? "failed" : "error",
+        providerAccepted: false,
+        recorded: updated === "updated",
+        message: updated === "updated"
+          ? "O provedor não confirmou o envio."
+          : "O envio falhou, mas o banco não confirmou o registro da falha.",
+      });
+      continue;
     }
+
+    // O aceite já ocorreu. Uma falha de registro não pode voltar a fila para failed.
+    const updated = await updateNotification(supabase, claimedAttempt, {
+      status: "sent",
+      provider_id: providerId,
+      error_message: null,
+      sent_at: new Date().toISOString(),
+    });
+    if (updated === "updated") result.processed += 1;
+    result.items.push({
+      ...item,
+      result: updated === "updated" ? "sent" : "error",
+      providerId,
+      providerAccepted: true,
+      recorded: updated === "updated",
+      ...(updated === "updated" ? {} : {
+        message: "O provedor aceitou o e-mail, mas o banco não confirmou o registro do envio.",
+      }),
+    });
   }
 
   return result;
