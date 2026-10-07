@@ -22,6 +22,8 @@ type NotificationResult =
       sent: number;
       failed: number;
       skipped: number;
+      accepted: number;
+      errors: number;
     };
 
 export async function POST(request: Request) {
@@ -193,12 +195,16 @@ export async function POST(request: Request) {
       const sent = result.items.filter((item) => item.result === "sent").length;
       const failed = result.items.filter((item) => item.result === "failed").length;
       // Preferências desativadas e itens já em processamento não confirmam envio.
-      const skipped = result.items.length - sent - failed;
+      const errors = result.items.filter((item) => item.result === "error").length;
+      const accepted = result.items.filter(
+        (item) => item.providerAccepted === true || item.result === "sent",
+      ).length;
+      const skipped = result.items.length - sent - failed - errors;
       const status = sent > 0
-        ? failed > 0 || skipped > 0 ? "partial" : "sent"
-        : failed > 0 ? "failed" : "skipped";
+        ? failed > 0 || skipped > 0 || errors > 0 ? "partial" : "sent"
+        : failed > 0 || errors > 0 ? "failed" : "skipped";
 
-      notification = { status, sent, failed, skipped };
+      notification = { status, sent, accepted, failed, skipped, errors };
     }
   } catch {
     // A reserva já foi criada: falhas de e-mail não podem incentivar outra criação.

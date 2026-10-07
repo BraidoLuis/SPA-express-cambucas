@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     }
 
     const failedItems = processingResult.items.filter(
-      (item) => item.result === "failed",
+      (item) => item.result === "failed" || item.result === "error",
     );
 
     return Response.json({

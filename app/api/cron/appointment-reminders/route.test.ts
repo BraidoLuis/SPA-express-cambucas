@@ -122,3 +122,33 @@ describe("sigilo de CRON_SECRET nos erros dos lembretes", () => {
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(secret);
   });
 });
+
+describe("resultados de persistência do processador nos lembretes", () => {
+  it.each([true, false])("não anuncia sucesso se houver erro de processamento (aceito=%s)", async (accepted) => {
+    mocks.rpc.mockResolvedValue({ data: [{ appointment_id: "appointment-1" }], error: null });
+    mocks.processEmails.mockResolvedValue({
+      appointmentId: "appointment-1", configured: true, processed: 0,
+      items: [{
+        notificationId: "notification", result: "error",
+        providerAccepted: accepted, recorded: false,
+      }],
+    });
+    const response = await GET(request(`Bearer ${secret}`));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: false, emailsSent: 0, emailsAccepted: accepted ? 1 : 0,
+      emailsFailed: 0, processingErrors: 1,
+    });
+  });
+
+  it("não anuncia sucesso integral se o e-mail não está configurado", async () => {
+    mocks.rpc.mockResolvedValue({ data: [{ appointment_id: "appointment-1" }], error: null });
+    mocks.processEmails.mockResolvedValue({
+      appointmentId: "appointment-1", configured: false, processed: 0, items: [],
+    });
+    const response = await GET(request(`Bearer ${secret}`));
+    expect(await response.json()).toMatchObject({
+      ok: false, emailsSent: 0, emailsAccepted: 0, emailsFailed: 0, processingErrors: 0,
+    });
+  });
+});

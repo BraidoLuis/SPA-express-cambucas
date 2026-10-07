@@ -204,7 +204,7 @@ describe("e-mails de reservas administrativas (somente mocks)", () => {
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({
       id: appointmentId,
-      notification: { status: "sent", sent: 2, failed: 0, skipped: 0 },
+      notification: { status: "sent", sent: 2, accepted: 2, failed: 0, skipped: 0, errors: 0 },
     });
     expect(mocks.insert).toHaveBeenCalledOnce();
     expect(mocks.processEmails).toHaveBeenCalledExactlyOnceWith(appointmentId);
@@ -246,9 +246,9 @@ describe("e-mails de reservas administrativas (somente mocks)", () => {
   });
 
   it.each([
-    { outcomes: ["failed"], expected: { status: "failed", sent: 0, failed: 1, skipped: 0 } },
-    { outcomes: ["sent", "failed"], expected: { status: "partial", sent: 1, failed: 1, skipped: 0 } },
-    { outcomes: ["sent", "skipped"], expected: { status: "partial", sent: 1, failed: 0, skipped: 1 } },
+    { outcomes: ["failed"], expected: { status: "failed", sent: 0, accepted: 0, failed: 1, skipped: 0, errors: 0 } },
+    { outcomes: ["sent", "failed"], expected: { status: "partial", sent: 1, accepted: 1, failed: 1, skipped: 0, errors: 0 } },
+    { outcomes: ["sent", "skipped"], expected: { status: "partial", sent: 1, accepted: 1, failed: 0, skipped: 1, errors: 0 } },
   ] as const)("preserva a reserva quando o envio é $expected.status", async ({ outcomes, expected }) => {
     mocks.processEmails.mockResolvedValue(processingResult([...outcomes]));
     const response = await POST(request());
@@ -270,6 +270,27 @@ describe("e-mails de reservas administrativas (somente mocks)", () => {
     expect(mocks.insert).toHaveBeenCalledOnce();
     expect(mocks.processEmails).toHaveBeenCalledExactlyOnceWith(appointmentId);
   });
+
+  it.each([true, false])(
+    "preserva a reserva e distingue erro de processamento de aceite do provedor: %s",
+    async (accepted) => {
+      const result = processingResult(["error"]);
+      result.items[0].providerAccepted = accepted;
+      result.items[0].recorded = false;
+      mocks.processEmails.mockResolvedValue(result);
+      const response = await POST(request());
+      expect(response.status).toBe(201);
+      expect(await response.json()).toEqual({
+        id: appointmentId,
+        notification: {
+          status: "failed", sent: 0, accepted: accepted ? 1 : 0,
+          failed: 0, skipped: 0, errors: 1,
+        },
+      });
+      expect(mocks.insert).toHaveBeenCalledOnce();
+      expect(mocks.processEmails).toHaveBeenCalledExactlyOnceWith(appointmentId);
+    },
+  );
 
   it("não anuncia envio quando o e-mail está sem configuração", async () => {
     mocks.processEmails.mockResolvedValue(processingResult([], false));
@@ -294,14 +315,14 @@ describe("e-mails de reservas administrativas (somente mocks)", () => {
       expect(response.status).toBe(201);
       expect(await response.json()).toEqual({
         id: appointmentId,
-        notification: { status: "skipped", sent: 0, failed: 0, skipped: outcomes.length },
+        notification: { status: "skipped", sent: 0, accepted: 0, failed: 0, skipped: outcomes.length, errors: 0 },
       });
     },
   );
 });
 
 describe("caminho administrativo completo pela interface/serviço", () => {
-  it.each(["sent", "failed", "exception", "not_configured"] as const)(
+  it.each(["sent", "failed", "error", "exception", "not_configured"] as const)(
     "retorna o ID com resultado %s sem disparar outro endpoint de notificações",
     async (outcome) => {
       vi.spyOn(console, "error").mockImplementation(() => {});
