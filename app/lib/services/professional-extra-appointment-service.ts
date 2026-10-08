@@ -1,3 +1,4 @@
+import { BookingError, bookingErrorMessage, confirmedAppointmentId } from "../booking-errors";
 import { createClient } from "../../../lib/supabase/client";
 
 export type CreateExtraAppointmentInput = {
@@ -31,7 +32,7 @@ export async function createProfessionalExtraAppointment(
     },
   );
 
-  if (error) throw error;
+  if (error) throw new BookingError(bookingErrorMessage(error, "create"));
 
-  return data as string;
+  return confirmedAppointmentId(data);
 }

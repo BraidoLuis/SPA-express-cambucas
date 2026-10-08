@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pad, type Service } from "../../lib/spa-data";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
@@ -10,7 +10,12 @@ import {
   type AvailableSlot,
   type BookingGapSuggestion,
 } from "../../lib/services/availability-service";
-import { cancelClientAppointment, createClientAppointment, getClientAppointments, type ClientAppointment } from "../../lib/services/appointment-service";
+import { createClientAppointment, getClientAppointments, type ClientAppointment } from "../../lib/services/appointment-service";
+import { useBookingRequests } from "../shared/use-booking-requests";
+import { bookingErrorMessage } from "../../lib/booking-errors";
+import { canClientCancelAppointment, cancellationMessage, cancellationUnavailableMessage, revalidateCancellation, type CancellationRules } from "../../lib/cancellation-rules";
+import { applyConfirmedClientCancellation, cancelAndRefreshClientAppointment } from "../../lib/client-cancellation";
+import { getCancellationRules } from "../../lib/services/cancellation-rules-service";
 import { ClientProfileForm } from "./client-profile-form";
 import { ActionDialog } from "../shared/action-dialog";
 import { ServiceCoverImage } from "../shared/service-cover-image";
@@ -23,47 +28,6 @@ import {
   buildBookingGapWhatsAppUrl,
 } from "../../lib/appointment-whatsapp";
 
-const CLIENT_CANCELLATION_NOTICE_HOURS = 2;
-
-const CLIENT_CANCELLATION_NOTICE_MS =
-  CLIENT_CANCELLATION_NOTICE_HOURS *
-  60 *
-  60 *
-  1000;
-
-function canClientCancelAppointment(
-  startAt: string,
-  referenceTime = Date.now(),
-) {
-  const appointmentTime = new Date(startAt).getTime();
-
-  return (
-    Number.isFinite(appointmentTime) &&
-    appointmentTime >
-      referenceTime +
-        CLIENT_CANCELLATION_NOTICE_MS
-  );
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof (error as { message?: unknown })
-      .message === "string"
-  ) {
-    return (error as { message: string })
-      .message;
-  }
-
-  return "";
-}
-
 function ServiceScheduling({
   clientName,
   onAppointmentCreated,
@@ -71,6 +35,7 @@ function ServiceScheduling({
   clientName: string;
   onAppointmentCreated: () => void | Promise<void>;
 }) {
+  const requests = useBookingRequests();
   const today = new Date();
   const firstAvailable = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
   const [selected, setSelected] = useState<Service | null>(null);
@@ -105,13 +70,19 @@ function ServiceScheduling({
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((service) => service.professionalId).map((service) => [service.professionalId!, { id: service.professionalId!, name: service.professionalFullName || service.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
   const visibleServices = catalog.filter((service) => (catalogFilter === "Todos" || service.category === catalogFilter) && (professionalFilter === "all" || service.professionalId === professionalFilter));
   function resetClientCarousel() { clientCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
-  async function loadCatalog() {
+  const loadCatalog = useCallback(async () => {
+    const ticket = requests.begin("catalog");
+    if (!ticket) return;
     setCatalogLoading(true); setCatalogError("");
-    try { setCatalog(await getClientCatalog()); }
-    catch { setCatalogError("Não foi possível carregar os serviços agora."); }
-    finally { setCatalogLoading(false); }
-  }
-  useEffect(() => { queueMicrotask(() => void loadCatalog()); }, []);
+    try { const data = await getClientCatalog(); if (requests.current(ticket)) setCatalog(data); }
+    catch { if (requests.current(ticket)) setCatalogError("Não foi possível carregar os serviços agora."); }
+    finally { if (requests.current(ticket)) setCatalogLoading(false); requests.finish(ticket); }
+  }, [requests]);
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void loadCatalog(); });
+    return () => { cancelled = true; };
+  }, [loadCatalog]);
   useEffect(() => {
     if (!selected?.id || !selected.professionalId) {
       return;
@@ -184,6 +155,8 @@ function ServiceScheduling({
       return;
     }
 
+    const ticket = requests.begin("create", true);
+    if (!ticket) return;
     setBookingSubmitting(true);
     setBookingError("");
     setBookingErrorType("generic");
@@ -195,24 +168,16 @@ function ServiceScheduling({
         slotStart: selectedSlot.start,
       });
 
+      if (!requests.current(ticket)) return;
       setAppointmentId(id);
       setConfirmed(true);
 
-      await onAppointmentCreated();
-    } catch (error) {
-      let message = "";
-
-      if (error instanceof Error) {
-        message = error.message;
-      } else if (
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error &&
-        typeof (error as { message?: unknown }).message ===
-          "string"
-      ) {
-        message = (error as { message: string }).message;
+      try { await onAppointmentCreated(); } catch {
+        if (requests.current(ticket)) setBookingError("Reserva confirmada. Não foi possível atualizar a lista; consulte Meus agendamentos.");
       }
+    } catch (error) {
+      if (!requests.current(ticket)) return;
+      const message = bookingErrorMessage(error, "create");
 
       const normalizedMessage =
         message.toLocaleLowerCase("pt-BR");
@@ -264,11 +229,12 @@ function ServiceScheduling({
       } else {
         setBookingErrorType("generic");
         setBookingError(
-          "Não foi possível confirmar o agendamento. Tente novamente.",
+          message,
         );
       }
     } finally {
-      setBookingSubmitting(false);
+      if (requests.current(ticket)) setBookingSubmitting(false);
+      requests.finish(ticket);
     }
   }
 
@@ -316,6 +282,7 @@ function ServiceScheduling({
           O pagamento de R$ {selected.price},00 será realizado no local.
         </small>
         <small className="appointment-reference">Código do agendamento: {appointmentId.slice(0, 8).toUpperCase()}</small>
+        {bookingError && <p role="status">{bookingError}</p>}
         <div className="confirmation-channels">
           <span>✓ Agendamento registrado no aplicativo</span>
           <span>✉ Confirmação por e-mail preparada</span>
@@ -346,7 +313,9 @@ function ServiceScheduling({
         </div>
         <button
           className="primary"
+          disabled={bookingSubmitting}
           onClick={() => {
+            if (requests.busy("create")) return;
             setConfirmed(false);
             setSelected(null);
             setTime("");
@@ -364,7 +333,9 @@ function ServiceScheduling({
       <div className="service-schedule-detail">
         <button
           className="schedule-back"
+          disabled={bookingSubmitting}
           onClick={() => {
+            if (requests.busy("create")) return;
             setSelected(null);
             setTime("");
             setSelectedSlot(null);
@@ -403,15 +374,17 @@ function ServiceScheduling({
             <p>Selecione uma data para ver os horários livres.</p>
             <div className="availability-month">
               <label>Data do atendimento</label>
-              <input type="date" min={today.toISOString().slice(0, 10)} value={selectedDate} onChange={(event) => {setSelectedDate(event.target.value);setTime("");setSelectedSlot(null);setBookingError("");}} />
+              <input type="date" disabled={bookingSubmitting} min={today.toISOString().slice(0, 10)} value={selectedDate} onChange={(event) => {if (requests.busy("create")) return;setSelectedDate(event.target.value);setTime("");setSelectedSlot(null);setBookingError("");}} />
             </div>
             <div className="availability-days">
               {Array.from({length:6},(_,index)=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+index);return date;}).map((date) => {
                 const value=date.toISOString().slice(0,10);
                 return (
                 <button
+                  disabled={bookingSubmitting}
                   className={selectedDate === value ? "active" : ""}
                   onClick={() => {
+                    if (requests.busy("create")) return;
                     setSelectedDate(value);
                     setTime("");
                     setSelectedSlot(null);
@@ -429,8 +402,9 @@ function ServiceScheduling({
             <div className="available-times">
               {availableSlots.map((slot) => (
                 <button
+                  disabled={bookingSubmitting}
                   className={time === slot.label ? "active" : ""}
-                  onClick={() => { setTime(slot.label); setSelectedSlot(slot); setBookingError(""); }}
+                  onClick={() => { if (requests.busy("create")) return; setTime(slot.label); setSelectedSlot(slot); setBookingError(""); }}
                   key={slot.start}
                 >
                   {slot.label}
@@ -438,7 +412,7 @@ function ServiceScheduling({
               ))}
             </div>
             {slotsLoading && <div className="slots-feedback"><span>✦</span> Consultando agenda...</div>}
-            {slotsError && <div className="slots-feedback error"><span>{slotsError}</span><button onClick={() => setAvailabilityReload((value) => value + 1)}>Tentar novamente</button></div>}
+            {slotsError && <div className="slots-feedback error"><span>{slotsError}</span><button disabled={bookingSubmitting} onClick={() => { if (!requests.busy("create")) setAvailabilityReload((value) => value + 1); }}>Tentar novamente</button></div>}
             {!slotsLoading &&
             !slotsError &&
             availableSlots.length === 0 &&
@@ -683,6 +657,9 @@ const clientTabs = [
 ];
 
 export function ClientDashboard({ logout, profile }: { logout: () => void; profile: AuthProfile | null }) {
+  const requests = useBookingRequests();
+  const [rules, setRules] = useState<CancellationRules | null>(null);
+  const [cancellationFeedback, setCancellationFeedback] = useState("");
   const [tab, setTab] = useState("Serviços");
   const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
@@ -716,18 +693,35 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
     nextAppointment
       ? canClientCancelAppointment(
           nextAppointment.start,
+          rules,
           currentTime,
         )
       : false;
 
-  async function loadAppointments() {
+  const loadAppointments = useCallback(async () => {
+    const ticket = requests.begin("appointments");
+    if (!ticket) return;
     setAppointmentsLoading(true); setAppointmentsError("");
-    try { setAppointments(await getClientAppointments()); }
-    catch { setAppointmentsError("Não foi possível carregar seus agendamentos."); }
-    finally { setAppointmentsLoading(false); }
-  }
+    try {
+      const [data, currentRules] = await Promise.all([
+        getClientAppointments(), getCancellationRules().catch(() => null),
+      ]);
+      if (!requests.current(ticket)) return;
+      setAppointments(data); setRules(currentRules);
+      if (!currentRules) setAppointmentsError(cancellationMessage(null));
+    } catch {
+      if (requests.current(ticket)) setAppointmentsError("Não foi possível carregar seus agendamentos.");
+    } finally {
+      if (requests.current(ticket)) setAppointmentsLoading(false);
+      requests.finish(ticket);
+    }
+  }, [requests]);
 
-  useEffect(() => { queueMicrotask(() => void loadAppointments()); }, []);
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) void loadAppointments(); });
+    return () => { cancelled = true; };
+  }, [loadAppointments]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -739,54 +733,48 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
     };
   }, []);
 
-  async function cancelAppointment(
-    item: ClientAppointment,
-  ) {
+  async function openCancellation(item: ClientAppointment) {
+    const ticket = requests.begin("cancellation", true);
+    if (!ticket) return;
     setAppointmentsError("");
-
-    /*
-    * Validação visual. O banco continua sendo
-    * a validação definitiva.
-    */
-    if (
-      !canClientCancelAppointment(
-        item.start,
-        Date.now(),
-      )
-    ) {
-      setAppointmentsError(
-        "O prazo para cancelamento online terminou. Os cancelamentos devem ser realizados com mais de 2 horas de antecedência.",
-      );
-
-      return;
-    }
-
     setCancellingId(item.id);
-
     try {
-      await cancelClientAppointment(item.id);
-      await loadAppointments();
+      const currentRules = await revalidateCancellation(item.start, getCancellationRules);
+      if (!requests.current(ticket)) return;
+      setRules(currentRules);
+      setCancellationFeedback("");
+      setAppointmentToCancel(item);
     } catch (error) {
-      const message =
-        getErrorMessage(error).toLocaleLowerCase(
-          "pt-BR",
-        );
-
-      const cancellationDeadlineReached =
-        message.includes(
-          "cancelamento deve ser solicitado",
-        ) ||
-        message.includes(
-          "hora(s) de antecedência",
-        );
-
-      setAppointmentsError(
-        cancellationDeadlineReached
-          ? "O prazo para cancelamento online terminou. Os cancelamentos devem ser realizados com mais de 2 horas de antecedência."
-          : "Não foi possível cancelar o agendamento. Tente novamente.",
-      );
+      if (requests.current(ticket)) setAppointmentsError(bookingErrorMessage(error, "cancel"));
     } finally {
-      setCancellingId("");
+      if (requests.current(ticket)) setCancellingId("");
+      requests.finish(ticket);
+    }
+  }
+
+  async function cancelAppointment(item: ClientAppointment) {
+    const ticket = requests.begin("cancellation", true);
+    if (!ticket) return;
+    setCancellingId(item.id);
+    setCancellationFeedback("");
+    try {
+      // A validação no navegador informa; UPDATE/RLS/triggers continuam definitivos.
+      const currentRules = await revalidateCancellation(item.start, getCancellationRules);
+      if (!requests.current(ticket)) return;
+      setRules(currentRules);
+      await cancelAndRefreshClientAppointment(item.id, {
+        isCurrent: () => requests.current(ticket),
+        onConfirmed: () => {
+          setAppointments((current) => applyConfirmedClientCancellation(current, item.id));
+          setAppointmentToCancel(null);
+        },
+        reload: loadAppointments,
+      });
+    } catch (error) {
+      if (requests.current(ticket)) setCancellationFeedback(bookingErrorMessage(error, "cancel"));
+    } finally {
+      if (requests.current(ticket)) setCancellingId("");
+      requests.finish(ticket);
     }
   }
 
@@ -871,19 +859,16 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
 
                   <button
                     disabled={
-                      cancellingId ===
-                        nextAppointment.id ||
+                      !!cancellingId ||
                       !nextAppointmentCanBeCancelled
                     }
                     title={
                       nextAppointmentCanBeCancelled
                         ? "Cancelar agendamento"
-                        : "O prazo de cancelamento online terminou"
+                        : cancellationUnavailableMessage(rules)
                     }
                     onClick={() =>
-                      setAppointmentToCancel(
-                        nextAppointment,
-                      )
+                      void openCancellation(nextAppointment)
                     }
                   >
                     {cancellingId ===
@@ -891,13 +876,12 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                       ? "Cancelando..."
                       : nextAppointmentCanBeCancelled
                         ? "Cancelar"
-                        : "Prazo encerrado"}
+                        : rules ? "Prazo encerrado" : "Indisponível"}
                   </button>
 
                   {!nextAppointmentCanBeCancelled && (
                     <small className="client-cancellation-notice">
-                      O cancelamento online está disponível
-                      somente até 2 horas antes do atendimento.
+                      {cancellationUnavailableMessage(rules)}
                     </small>
                   )}
                 </div>
@@ -971,10 +955,8 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                     </summary>
 
                     <p>
-                      O cancelamento online pode ser realizado
-                      até 2 horas antes do atendimento. Acesse
-                      Meus agendamentos e utilize o botão
-                      Cancelar no horário desejado.
+                      {cancellationMessage(rules)} Acesse Meus agendamentos
+                      e utilize o botão Cancelar no horário desejado.
                     </p>
                   </details>
 
@@ -1006,6 +988,7 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 const cancellationAvailable =
                   canClientCancelAppointment(
                     item.start,
+                    rules,
                     currentTime,
                   );
 
@@ -1048,29 +1031,28 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
 
                     <button
                       disabled={
-                        cancellingId === item.id ||
+                        !!cancellingId ||
                         !cancellationAvailable
                       }
                       title={
                         cancellationAvailable
                           ? "Cancelar agendamento"
-                          : "O prazo de cancelamento online terminou"
+                          : cancellationUnavailableMessage(rules)
                       }
                       onClick={() =>
-                        setAppointmentToCancel(item)
+                        void openCancellation(item)
                       }
                     >
                       {cancellingId === item.id
                         ? "Cancelando..."
                         : cancellationAvailable
                           ? "Cancelar"
-                          : "Prazo encerrado"}
+                          : rules ? "Prazo encerrado" : "Indisponível"}
                     </button>
 
                     {!cancellationAvailable && (
                       <small className="client-cancellation-notice">
-                        O cancelamento online está disponível
-                        somente até 2 horas antes do atendimento.
+                        {cancellationUnavailableMessage(rules)}
                       </small>
                     )}
                   </div>
@@ -1106,7 +1088,7 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 appointmentToCancel.start,
               )} às ${appointmentTime(
                 appointmentToCancel.start,
-              )}. O horário ficará disponível novamente. Cancelamentos online são permitidos somente com mais de 2 horas de antecedência.`
+              )}. O horário ficará disponível novamente. ${cancellationMessage(rules)}`
             : ""
         }
         confirmLabel="Cancelar agendamento"
@@ -1116,14 +1098,12 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
             ? cancellingId === appointmentToCancel.id
             : false
         }
-        onCancel={() => setAppointmentToCancel(null)}
+        feedback={cancellationFeedback || (appointmentToCancel && !canClientCancelAppointment(appointmentToCancel.start, rules, currentTime) ? cancellationUnavailableMessage(rules) : "")}
+        onCancel={() => { setAppointmentToCancel(null); setCancellationFeedback(""); }}
         onConfirm={() => {
           if (!appointmentToCancel) return;
 
-          const appointment = appointmentToCancel;
-          setAppointmentToCancel(null);
-
-          void cancelAppointment(appointment);
+          void cancelAppointment(appointmentToCancel);
         }}
       />
     </div>

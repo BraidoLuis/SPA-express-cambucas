@@ -1,3 +1,4 @@
+import { BookingError, bookingErrorMessage } from "../booking-errors";
 import { createClient } from "../../../lib/supabase/client";
 import {
   appointmentDurationMinutes,
@@ -143,8 +144,9 @@ export async function updateProfessionalAppointmentStatus(
   );
 
   if (error) {
-    throw error;
+    throw new BookingError(bookingErrorMessage(error, "update"));
   }
+  await confirmProfessionalStatus(supabase, appointmentId, status);
 
   /*
    * Confirmação, conclusão e ausência não
@@ -201,7 +203,8 @@ export async function completeProfessionalAppointment(
     paymentNotes?: string;
   },
 ) {
-  const { error } = await createClient().rpc(
+  const supabase = createClient();
+  const { error } = await supabase.rpc(
     "complete_professional_appointment",
     {
       p_appointment_id: input.appointmentId,
@@ -214,5 +217,17 @@ export async function completeProfessionalAppointment(
     },
   );
 
-  if (error) throw error;
+  if (error) throw new BookingError(bookingErrorMessage(error, "update"));
+  await confirmProfessionalStatus(supabase, input.appointmentId, "completed");
+}
+async function confirmProfessionalStatus(
+  supabase: ReturnType<typeof createClient>,
+  appointmentId: string,
+  status: ProfessionalAppointmentStatus,
+) {
+  // Não presumimos o retorno dos RPCs de produção: conferimos o registro legível.
+  const result = await supabase.from("appointments").select("id,status").eq("id", appointmentId).maybeSingle();
+  if (result.error || result.data?.id !== appointmentId || result.data.status !== status) {
+    throw new BookingError("Não foi possível confirmar a alteração. Atualize sua agenda para conferir o resultado.");
+  }
 }

@@ -1,3 +1,4 @@
+import { BookingError, bookingErrorMessage, confirmedAppointmentId } from "../booking-errors";
 import { createClient } from "../../../lib/supabase/client";
 import {
   appointmentDurationMinutes,
@@ -63,15 +64,9 @@ export async function createClientAppointment(
     },
   );
 
-  if (error) throw error;
+  if (error) throw new BookingError(bookingErrorMessage(error, "create"));
 
-  if (!data) {
-    throw new Error(
-      "O agendamento não retornou um identificador.",
-    );
-  }
-
-  const appointmentId = data as string;
+  const appointmentId = confirmedAppointmentId(data);
 
   /*
    * O agendamento já foi salvo no Supabase neste ponto.
@@ -156,7 +151,7 @@ export async function cancelClientAppointment(
 ) {
   const supabase = createClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("appointments")
     .update({
       status: "cancelled",
@@ -164,10 +159,16 @@ export async function cancelClientAppointment(
       cancellation_reason:
         "Cancelado pela cliente",
     })
-    .eq("id", appointmentId);
+    .eq("id", appointmentId)
+    .in("status", ["pending", "confirmed"])
+    .select("id,status")
+    .maybeSingle();
 
   if (error) {
-    throw error;
+    throw new BookingError(bookingErrorMessage(error, "cancel"));
+  }
+  if (data?.id !== appointmentId || data.status !== "cancelled") {
+    throw new BookingError("O cancelamento não foi confirmado. O atendimento pode ter sido cancelado ou alterado. Atualize seus agendamentos para conferir o resultado.");
   }
 
   /*

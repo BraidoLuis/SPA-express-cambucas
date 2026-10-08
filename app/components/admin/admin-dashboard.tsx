@@ -1,4 +1,5 @@
 "use client";
+import { useBookingRequests } from "../shared/use-booking-requests";
 import { useEffect, useRef, useState } from "react";
 import { services, type Booking } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
@@ -1459,6 +1460,7 @@ export function AdminDashboard({
   profile: AuthProfile | null;
 }) {
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
+  const requests = useBookingRequests();
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
@@ -1500,38 +1502,36 @@ export function AdminDashboard({
   const menuIcons = [Home, CalendarDays, CalendarDays, Sparkles, Image, Users, Contact, ChartNoAxesCombined, Settings];
 
   async function loadOverview() {
+    const ticket = requests.begin("overview");
+    if (!ticket) return;
     setOverviewLoading(true);
     setOverviewError("");
 
     try {
       const data = await getAdminOverview();
-      setOverview(data);
-    } catch (error) {
-      setOverviewError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os dados administrativos.",
-      );
+      if (requests.current(ticket)) setOverview(data);
+    } catch {
+      if (requests.current(ticket)) setOverviewError("Não foi possível carregar os dados administrativos.");
     } finally {
-      setOverviewLoading(false);
+      if (requests.current(ticket)) setOverviewLoading(false);
+      requests.finish(ticket);
     }
   }
 
   async function loadAdminAppointments() {
+    const ticket = requests.begin("appointments");
+    if (!ticket) return;
     setAdminAppointmentsLoading(true);
     setAdminAppointmentsError("");
 
     try {
       const data = await getAdminAppointments();
-      setAdminAppointments(data);
-    } catch (error) {
-      setAdminAppointmentsError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os agendamentos.",
-      );
+      if (requests.current(ticket)) setAdminAppointments(data);
+    } catch {
+      if (requests.current(ticket)) setAdminAppointmentsError("Não foi possível carregar os agendamentos.");
     } finally {
-      setAdminAppointmentsLoading(false);
+      if (requests.current(ticket)) setAdminAppointmentsLoading(false);
+      requests.finish(ticket);
     }
   }
 
@@ -1543,8 +1543,11 @@ export function AdminDashboard({
   }
 
   async function handleScheduleChanged() {
+    const ticket = requests.begin("revision");
+    if (!ticket) return;
     await reloadAdminData();
-    setDataRevision((value) => value + 1);
+    if (requests.current(ticket)) setDataRevision((value) => value + 1);
+    requests.finish(ticket);
   }
 
   function quickAction(action: "appointment" | "service" | "professional" | "block") {

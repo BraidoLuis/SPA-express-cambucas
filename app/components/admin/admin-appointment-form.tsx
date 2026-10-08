@@ -1,6 +1,8 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect -- modal opening and dependent remote slot hydration intentionally reset transient state. */
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { useBookingRequests } from "../shared/use-booking-requests";
+import { bookingErrorMessage } from "../../lib/booking-errors";
 import { CalendarCheck, Check, Search, X } from "lucide-react";
 import {
   createAdminAppointment,
@@ -23,6 +25,7 @@ export function AdminAppointmentForm({
   onClose: () => void;
   onCreated: (id: string) => Promise<void> | void;
 }) {
+  const requests = useBookingRequests(open);
   const [options, setOptions] = useState<AdminAppointmentOptions>({
     clients: [],
     services: [],
@@ -51,21 +54,26 @@ export function AdminAppointmentForm({
   useEffect(() => {
     if (!open) return;
 
+    const ticket = requests.begin("options");
+    if (!ticket) return;
     setLoading(true);
     setError("");
     setSuccess("");
     setReviewing(false);
+    setSaving(false);
 
     getAdminAppointmentOptions()
       .then((data) => {
+        if (!requests.current(ticket)) return;
         setOptions(data);
         if (initialClient && data.clients.some((x) => x.id === initialClient.id)) {
           setClientId(initialClient.id);
         }
       })
-      .catch(() => setError("Não foi possível carregar o formulário de agendamento."))
-      .finally(() => setLoading(false));
-  }, [initialClient, open]);
+      .catch(() => { if (requests.current(ticket)) setError("Não foi possível carregar o formulário de agendamento."); })
+      .finally(() => { if (requests.current(ticket)) setLoading(false); requests.finish(ticket); });
+    return () => requests.finish(ticket);
+  }, [initialClient, open, requests]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,24 +100,26 @@ export function AdminAppointmentForm({
     setSlotStart("");
     setReviewing(false);
 
-    if (!professionalId || !serviceId || !date) return;
+    if (!open || !professionalId || !serviceId || !date) return;
 
     const id = ++requestId.current;
     setSlotsLoading(true);
 
+    let cancelled = false;
     getAvailableSlots(professionalId, serviceId, date)
       .then((data) => {
-        if (id === requestId.current) setSlots(data);
+        if (!cancelled && id === requestId.current) setSlots(data);
       })
       .catch(() => {
-        if (id === requestId.current) {
+        if (!cancelled && id === requestId.current) {
           setError("Não foi possível consultar os horários disponíveis.");
         }
       })
       .finally(() => {
-        if (id === requestId.current) setSlotsLoading(false);
+        if (!cancelled && id === requestId.current) setSlotsLoading(false);
       });
-  }, [date, professionalId, serviceId]);
+    return () => { cancelled = true; };
+  }, [date, professionalId, serviceId, open]);
 
   const service = options.services.find((x) => x.id === serviceId);
   const professional = service?.professionals.find((x) => x.id === professionalId);
@@ -149,6 +159,8 @@ export function AdminAppointmentForm({
   async function confirm() {
     if (!client || !service || !professional || !slot || saving) return;
 
+    const ticket = requests.begin("create", true);
+    if (!ticket) return;
     setSaving(true);
     setError("");
 
@@ -161,15 +173,17 @@ export function AdminAppointmentForm({
         notes,
       });
 
+      if (!requests.current(ticket)) return;
       setSuccess(`Agendamento confirmado. Código: ${id.slice(0, 8).toUpperCase()}`);
       setReviewing(false);
-      await onCreated(id);
+      try { await onCreated(id); } catch {
+        if (requests.current(ticket)) setSuccess("Reserva confirmada. Atualize a agenda para consultar o horário.");
+      }
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "Não foi possível criar o agendamento."
-      );
+      if (requests.current(ticket)) setError(bookingErrorMessage(cause, "create"));
     } finally {
-      setSaving(false);
+      if (requests.current(ticket)) setSaving(false);
+      requests.finish(ticket);
     }
   }
 
@@ -267,6 +281,7 @@ export function AdminAppointmentForm({
                 </div>
               )}
             </dl>
+            {error && <p className="form-error" role="alert">{error}</p>}
             <footer>
               <button onClick={() => setReviewing(false)} disabled={saving}>
                 Voltar
