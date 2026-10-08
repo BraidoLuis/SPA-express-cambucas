@@ -1,5 +1,8 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { usePaymentRequests } from "../shared/use-payment-requests";
+import { reloadConfirmedPayment, runPaymentAction } from "../../lib/payment-requests";
+import { paymentErrorMessage } from "../../lib/payment-errors";
 import { services, type Booking } from "../../lib/spa-data";
 import { Icon, Logo, NotificationBell, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
@@ -36,6 +39,8 @@ function AdminContent({
   overviewLoading,
   overviewError,
   reloadOverview,
+  markPaymentConfirmed,
+  clearPaymentNotice,
   adminAppointments,
   adminAppointmentsLoading,
   adminAppointmentsError,
@@ -53,6 +58,8 @@ function AdminContent({
   overviewLoading: boolean;
   overviewError: string;
   reloadOverview: () => Promise<void>;
+  markPaymentConfirmed: (appointmentId: string) => void;
+  clearPaymentNotice: () => void;
   adminAppointments: AdminAppointment[];
   adminAppointmentsLoading: boolean;
   adminAppointmentsError: string;
@@ -300,7 +307,9 @@ function AdminContent({
             </div>
             <AdminTodayTable
               rows={filteredTodayAppointments}
-              onPaymentConfirmed={reloadOverview}
+              onPaymentConfirmed={markPaymentConfirmed}
+              onPaymentStarted={clearPaymentNotice}
+              reloadData={reloadOverview}
             />
             <button className="see-all">Ver agenda completa →</button>
           </div>
@@ -428,7 +437,9 @@ function AdminContent({
 
             <AdminTodayTable
               rows={filteredAdminAppointments}
-              onPaymentConfirmed={reloadOverview}
+              onPaymentConfirmed={markPaymentConfirmed}
+              onPaymentStarted={clearPaymentNotice}
+              reloadData={reloadOverview}
               showDate
             />
           </>
@@ -973,12 +984,17 @@ function ScreenTop({
 function AdminTodayTable({
   rows,
   onPaymentConfirmed,
+  onPaymentStarted,
+  reloadData,
   showDate = false,
 }: {
   rows: AdminOverview["todayAppointments"];
-  onPaymentConfirmed: () => Promise<void>;
+  onPaymentConfirmed: (appointmentId: string) => void;
+  onPaymentStarted: () => void;
+  reloadData: () => Promise<void>;
   showDate?: boolean;
 }) {
+  const paymentRequests = usePaymentRequests();
   const [paymentAppointment, setPaymentAppointment] = useState<
     AdminOverview["todayAppointments"][number] | null
   >(null);
@@ -1030,6 +1046,7 @@ function AdminTodayTable({
   function openPayment(
     appointment: AdminOverview["todayAppointments"][number],
   ) {
+    if (paymentRequests.busy() || appointment.paymentStatus !== "pending") return;
     setPaymentAppointment(appointment);
     setPaymentMethod("pix");
     setPaymentNotes("");
@@ -1037,42 +1054,29 @@ function AdminTodayTable({
   }
 
   function closePayment() {
-    if (paymentSaving) return;
+    if (paymentRequests.busy()) return;
 
     setPaymentAppointment(null);
     setPaymentNotes("");
     setPaymentError("");
   }
 
-  async function submitPayment(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
+  async function submitPayment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (!paymentAppointment) return;
-
-    setPaymentSaving(true);
-    setPaymentError("");
-
-    try {
-      await confirmAdminPayment({
-        appointmentId: paymentAppointment.id,
-        method: paymentMethod,
-        notes: paymentNotes,
-      });
-
-      await onPaymentConfirmed();
-      setPaymentAppointment(null);
-      setPaymentNotes("");
-    } catch (error) {
-      setPaymentError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível confirmar o pagamento.",
-      );
-    } finally {
-      setPaymentSaving(false);
-    }
+    await runPaymentAction(paymentRequests, () => confirmAdminPayment({
+      appointmentId: paymentAppointment.id, method: paymentMethod, notes: paymentNotes,
+    }), {
+      onStart: () => { setPaymentSaving(true); setPaymentError(""); onPaymentStarted(); },
+      onConfirmed: (result) => {
+        onPaymentConfirmed(result.appointmentId);
+        setPaymentAppointment(null);
+        setPaymentNotes("");
+      },
+      reload: reloadData,
+      onError: (error) => setPaymentError(paymentErrorMessage(error, "payment")),
+      onFinish: () => setPaymentSaving(false),
+    });
   }
 
   return (
@@ -1155,7 +1159,7 @@ function AdminTodayTable({
                   <button
                     type="button"
                     className={isPaid ? "paid" : ""}
-                    disabled={!canConfirm}
+                    disabled={!canConfirm || paymentSaving}
                     onClick={() => openPayment(appointment)}
                   >
                     {isPaid
@@ -1458,6 +1462,8 @@ export function AdminDashboard({
   logout: () => void;
   profile: AuthProfile | null;
 }) {
+  const paymentRequests = usePaymentRequests();
+  const [paymentNotice, setPaymentNotice] = useState("");
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
@@ -1500,39 +1506,57 @@ export function AdminDashboard({
   const menuIcons = [Home, CalendarDays, CalendarDays, Sparkles, Image, Users, Contact, ChartNoAxesCombined, Settings];
 
   async function loadOverview() {
+    const token = paymentRequests.beginRead("overview");
+    if (!token) return false;
     setOverviewLoading(true);
     setOverviewError("");
-
     try {
       const data = await getAdminOverview();
+      if (!paymentRequests.currentRead(token)) return false;
       setOverview(data);
-    } catch (error) {
-      setOverviewError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os dados administrativos.",
-      );
+      return true;
+    } catch {
+      if (paymentRequests.currentRead(token)) setOverviewError("Não foi possível carregar os dados administrativos.");
+      return false;
     } finally {
-      setOverviewLoading(false);
+      if (paymentRequests.finishRead(token)) setOverviewLoading(false);
     }
   }
 
   async function loadAdminAppointments() {
+    const token = paymentRequests.beginRead("appointments");
+    if (!token) return false;
     setAdminAppointmentsLoading(true);
     setAdminAppointmentsError("");
-
     try {
       const data = await getAdminAppointments();
+      if (!paymentRequests.currentRead(token)) return false;
       setAdminAppointments(data);
-    } catch (error) {
-      setAdminAppointmentsError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os agendamentos.",
-      );
+      return true;
+    } catch {
+      if (paymentRequests.currentRead(token)) setAdminAppointmentsError("Não foi possível carregar os agendamentos.");
+      return false;
     } finally {
-      setAdminAppointmentsLoading(false);
+      if (paymentRequests.finishRead(token)) setAdminAppointmentsLoading(false);
     }
+  }
+
+  function markPaymentConfirmed(appointmentId: string) {
+    paymentRequests.invalidateReads();
+    setPaymentNotice("Pagamento confirmado.");
+    setOverview((current) => current ? {
+      ...current,
+      todayAppointments: current.todayAppointments.map((item) =>
+        item.id === appointmentId ? { ...item, paymentStatus: "paid" } : item),
+    } : current);
+    setAdminAppointments((current) => current.map((item) =>
+      item.id === appointmentId ? { ...item, paymentStatus: "paid" } : item));
+  }
+
+  async function reloadPaymentData() {
+    await reloadConfirmedPayment(paymentRequests, [loadOverview, loadAdminAppointments], () => {
+      setPaymentNotice("Pagamento confirmado. Não foi possível atualizar a tela. Atualize os dados; não confirme novamente.");
+    });
   }
 
   async function reloadAdminData() {
@@ -1636,6 +1660,7 @@ export function AdminDashboard({
             <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="admin-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>
         </header>
+        {paymentNotice && <p role="status">{paymentNotice}</p>}
         <AdminContent
           section={section}
           filter={filter}
@@ -1644,7 +1669,9 @@ export function AdminDashboard({
           overview={overview}
           overviewLoading={overviewLoading}
           overviewError={overviewError}
-          reloadOverview={reloadAdminData}
+          reloadOverview={reloadPaymentData}
+          markPaymentConfirmed={markPaymentConfirmed}
+          clearPaymentNotice={() => setPaymentNotice("")}
           adminAppointments={adminAppointments}
           adminAppointmentsLoading={adminAppointmentsLoading}
           adminAppointmentsError={adminAppointmentsError}

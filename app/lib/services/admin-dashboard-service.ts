@@ -1,3 +1,4 @@
+import { PaymentOperationError, paymentErrorMessage, paymentConfirmationUncertain } from "../payment-errors";
 import { createClient } from "../../../lib/supabase/client";
 
 export type AdminTodayAppointment = {
@@ -365,62 +366,47 @@ export type ConfirmAdminPaymentInput = {
   notes?: string;
 };
 
+export type ConfirmedAdminPayment = { appointmentId: string; paymentId: string; status: "paid" };
+
 export async function confirmAdminPayment(
   input: ConfirmAdminPaymentInput,
-): Promise<void> {
-  const supabase = createClient();
+): Promise<ConfirmedAdminPayment> {
+  try {
+    const supabase = createClient();
+    if (!input.appointmentId.trim()) throw new PaymentOperationError("Agendamento inválido.");
+    const allowedMethods: AdminPaymentMethod[] = ["pix", "dinheiro", "cartao", "outro"];
+    if (!allowedMethods.includes(input.method)) throw new PaymentOperationError("Forma de pagamento inválida.");
 
-  if (!input.appointmentId.trim()) {
-    throw new Error("Agendamento inválido.");
-  }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!user) throw new PaymentOperationError("Sua sessão expirou. Entre novamente.");
 
-  const allowedMethods: AdminPaymentMethod[] = [
-    "pix",
-    "dinheiro",
-    "cartao",
-    "outro",
-  ];
+    const notes = input.notes?.trim() || null;
+    const { data, error } = await supabase
+      .from("payments")
+      .update({
+        status: "paid",
+        method: input.method,
+        notes,
+        confirmed_by: user.id,
+        paid_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("appointment_id", input.appointmentId)
+      .eq("status", "pending")
+      .select("id,appointment_id,status,method,notes,confirmed_by,paid_at")
+      .maybeSingle();
 
-  if (!allowedMethods.includes(input.method)) {
-    throw new Error("Forma de pagamento inválida.");
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError) {
-    throw userError;
-  }
-
-  if (!user) {
-    throw new Error("Sua sessão expirou. Entre novamente.");
-  }
-
-  const { data, error } = await supabase
-    .from("payments")
-    .update({
-      status: "paid",
-      method: input.method,
-      notes: input.notes?.trim() || null,
-      confirmed_by: user.id,
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("appointment_id", input.appointmentId)
-    .eq("status", "pending")
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  if (!data) {
-    throw new Error(
-      "O pagamento não foi encontrado ou já foi confirmado.",
-    );
+    if (error) throw error;
+    if (!data || typeof data.id !== "string" || !data.id.trim() ||
+        data.appointment_id !== input.appointmentId || data.status !== "paid" ||
+        data.method !== input.method || data.notes !== notes || data.confirmed_by !== user.id ||
+        typeof data.paid_at !== "string" || !Number.isFinite(Date.parse(data.paid_at))) {
+      throw new PaymentOperationError(paymentConfirmationUncertain);
+    }
+    return { appointmentId: data.appointment_id, paymentId: data.id, status: "paid" };
+  } catch (error) {
+    throw new PaymentOperationError(paymentErrorMessage(error, "payment"));
   }
 }
 
