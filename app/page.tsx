@@ -61,6 +61,7 @@ export default function Home() {
   if (view === "admin" && profile) {
     content = (
       <AdminDashboard
+        key={accountGeneration}
         profile={profile}
         goPublic={() =>
           navigate("public")
@@ -76,6 +77,7 @@ export default function Home() {
   ) {
     content = (
       <ProfessionalDashboard
+        key={accountGeneration}
         access={professionalAccess}
         goPublic={() =>
           navigate("public")
