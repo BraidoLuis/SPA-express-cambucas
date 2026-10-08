@@ -87,9 +87,11 @@ describe("confirmação das operações de agendamento (somente mocks)", () => {
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
   });
   it("conclusão de equipe também precisa de registro confirmado", async () => {
-    await expect(completeProfessionalAppointment({ appointmentId: "appointment-test", paymentReceived: false })).rejects.toThrow("conferir o resultado");
-    mocks.row.mockResolvedValue({ data: { id: "appointment-test", status: "completed" }, error: null });
-    await expect(completeProfessionalAppointment({ appointmentId: "appointment-test", paymentReceived: false })).resolves.toBeUndefined();
+    // Contrato JSON de produção validado na revisão de pagamentos já integrada à main.
+    mocks.rpc.mockResolvedValue({ data: { appointment_id: "appointment-test", appointment_status: "completed", payment_status: "pending" }, error: null });
+    await expect(completeProfessionalAppointment({ appointmentId: "appointment-test", paymentReceived: false })).rejects.toThrow("pode ter sido salva");
+    mocks.row.mockResolvedValue({ data: { id: "appointment-test", status: "completed", payments: null }, error: null });
+    await expect(completeProfessionalAppointment({ appointmentId: "appointment-test", paymentReceived: false })).resolves.toEqual({ appointmentId: "appointment-test", appointmentStatus: "completed", paymentStatus: "pending" });
   });
   it.each([null, false, {}, ""])("admin não aceita identificador inválido: %j", async (id) => {
     mocks.fetch.mockResolvedValue(new Response(JSON.stringify({ id }), { status: 201 }));

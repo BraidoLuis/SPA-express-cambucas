@@ -27,6 +27,12 @@ Uma resposta de outro acesso ou de componente desmontado não atualiza o estado 
 
 Ao abrir e confirmar o diálogo, a configuração e o relógio são revalidados. Se o prazo vencer com a flag ativa, a mutação não é enviada e o diálogo mostra o vencimento. Com `false`, o diálogo permite um atendimento ainda futuro sem exigir as horas; se o atendimento já iniciou, a mensagem informa essa restrição. Configuração que não pôde ser carregada mantém a ação bloqueada com mensagem informativa.
 
+## Integração com a revisão de pagamentos
+
+Antes de publicar esta branch, foi integrada a origin/main em 615688143ec63e54e7e4e3596a1486f611ef2768, que já contém a revisão de pagamentos. Os conflitos nos painéis e no serviço profissional foram resolvidos preservando as duas etapas. A leitura da agenda e das listas administrativas conserva os tokens de pagamentos e a titularidade independente do loading; a revisão de agendamentos mantém os bloqueios e a verificação de status dos cancelamentos. Conclusão e alteração de status não iniciam simultaneamente uma mutação na mesma montagem.
+
+A conclusão profissional conserva o contrato JSON e a leitura posterior validados na revisão de pagamentos, inclusive conclusão sem recebimento e pagamento já confirmado pela administradora. O teste de agendamentos foi adaptado a esse contrato. A confirmação dos demais estados profissionais continua por leitura de ID/status depois do RPC. A proteção atômica entre sessões permanece pendente no banco, conforme docs/payment-confirmation-validation.md; nenhuma alteração SQL foi realizada.
+
 ## Consultas somente de leitura
 
 ```sql
@@ -145,4 +151,4 @@ Novos:
 - `app/lib/services/booking-mutations.test.ts`
 - `docs/booking-cancellation-validation.md`
 
-Validação da correção complementar: npm test passou (347 testes, 15 arquivos); npx tsc --noEmit passou; npm run lint passou sem erros (12 avisos existentes: 11 de imagens e um de diretiva eslint sem uso em coverage/block-navigation.js); npm run build passou; git diff --check passou. Os testes de banco e navegador acima continuam pendentes. Nenhum serviço real é utilizado nos testes com mocks.
+Validação após integrar origin/main: npm test passou (426 testes, 17 arquivos); npx tsc --noEmit passou; npm run lint passou sem erros (12 avisos existentes: 11 de imagens e um de diretiva eslint sem uso em coverage/block-navigation.js); npm run build passou; git diff --check passou, inclusive a comparação da etapa com origin/main. Os testes de banco e navegador acima continuam pendentes. Nenhum serviço real é utilizado nos testes com mocks.

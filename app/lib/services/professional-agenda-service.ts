@@ -1,4 +1,5 @@
 import { BookingError, bookingErrorMessage } from "../booking-errors";
+import { PaymentOperationError, paymentErrorMessage, completionConfirmationUncertain } from "../payment-errors";
 import { createClient } from "../../../lib/supabase/client";
 import {
   appointmentDurationMinutes,
@@ -191,41 +192,95 @@ export async function updateProfessionalAppointmentStatus(
   }
 }
 
-export async function completeProfessionalAppointment(
-  input: {
-    appointmentId: string;
-    paymentReceived: boolean;
-    paymentMethod?:
-      | "pix"
-      | "dinheiro"
-      | "cartao"
-      | "outro";
-    paymentNotes?: string;
-  },
-) {
-  const supabase = createClient();
-  const { error } = await supabase.rpc(
-    "complete_professional_appointment",
-    {
-      p_appointment_id: input.appointmentId,
-      p_payment_received: input.paymentReceived,
-      p_payment_method: input.paymentReceived
-        ? input.paymentMethod
-        : null,
-      p_payment_notes:
-        input.paymentNotes?.trim() || null,
-    },
-  );
+export type CompleteProfessionalAppointmentInput = {
+  appointmentId: string;
+  paymentReceived: boolean;
+  paymentMethod?: "pix" | "dinheiro" | "cartao" | "outro";
+  paymentNotes?: string;
+};
 
-  if (error) throw new BookingError(bookingErrorMessage(error, "update"));
-  await confirmProfessionalStatus(supabase, input.appointmentId, "completed");
+export type ConfirmedProfessionalCompletion = {
+  appointmentId: string;
+  appointmentStatus: "completed";
+  paymentStatus: ProfessionalAppointment["paymentStatus"];
+};
+
+export async function completeProfessionalAppointment(
+  input: CompleteProfessionalAppointmentInput,
+): Promise<ConfirmedProfessionalCompletion> {
+  const supabase = createClient();
+  try {
+    const paymentStatuses = ["pending", "paid", "refunded", "cancelled"];
+    let paymentReceived = input.paymentReceived;
+    if (paymentReceived) {
+      // Evita regravar um pagamento já confirmado (inclusive pela administradora).
+      // Esta leitura NÃO elimina a corrida entre sessões: o RPC precisa de proteção atômica.
+      const existing = await supabase.from("payments").select("id,appointment_id,status")
+        .eq("appointment_id", input.appointmentId).maybeSingle();
+      if (existing.error || !existing.data || typeof existing.data.id !== "string" ||
+          !existing.data.id.trim() || existing.data.appointment_id !== input.appointmentId ||
+          !paymentStatuses.includes(existing.data.status)) {
+        throw new PaymentOperationError("Não foi possível consultar o pagamento. Atualize a agenda antes de concluir.");
+      }
+      if (existing.data.status === "paid") paymentReceived = false;
+    }
+
+    const { data, error } = await supabase.rpc("complete_professional_appointment", {
+      p_appointment_id: input.appointmentId,
+      p_payment_received: paymentReceived,
+      p_payment_method: paymentReceived ? input.paymentMethod : null,
+      p_payment_notes: input.paymentNotes?.trim() || null,
+    });
+    if (error) throw error;
+
+    // Contrato jsonb fornecido da função de produção, sem inferir retornos das migrations.
+    const result = data as { appointment_id?: unknown; appointment_status?: unknown; payment_status?: unknown } | null;
+    if (!result || result.appointment_id !== input.appointmentId ||
+        result.appointment_status !== "completed" || typeof result.payment_status !== "string" ||
+        !paymentStatuses.includes(result.payment_status) || (paymentReceived && result.payment_status !== "paid")) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
+
+    // A função devolve 'completed' como literal; confirmamos também o estado legível salvo.
+    const saved = await Promise.resolve(supabase.from("appointments")
+      .select("id,status,payments(id,status,method,confirmed_by,paid_at)")
+      .eq("id", input.appointmentId).maybeSingle())
+      .catch(() => ({ data: null, error: true }));
+    if (saved.error || !saved.data || saved.data.id !== input.appointmentId ||
+        saved.data.status !== "completed" || !Object.hasOwn(saved.data, "payments")) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
+    const relation = saved.data.payments;
+    if (Array.isArray(relation) && relation.length > 1) throw new PaymentOperationError(completionConfirmationUncertain);
+    const payment = Array.isArray(relation) ? relation[0] : relation;
+    if (relation === undefined || (payment && (typeof payment.id !== "string" ||
+        !payment.id.trim() || !paymentStatuses.includes(payment.status)))) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
+    const savedStatus = payment?.status ?? "pending";
+    if (savedStatus !== result.payment_status || (paymentReceived &&
+        (!payment || typeof payment.id !== "string" || !payment.id.trim() ||
+         payment.method !== input.paymentMethod || typeof payment.confirmed_by !== "string" ||
+         !payment.confirmed_by.trim() || typeof payment.paid_at !== "string" ||
+         !Number.isFinite(Date.parse(payment.paid_at))))) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
+    return {
+      appointmentId: input.appointmentId,
+      appointmentStatus: "completed",
+      paymentStatus: result.payment_status as ProfessionalAppointment["paymentStatus"],
+    };
+  } catch (error) {
+    throw new PaymentOperationError(paymentErrorMessage(error, "completion"));
+  }
 }
+
 async function confirmProfessionalStatus(
   supabase: ReturnType<typeof createClient>,
   appointmentId: string,
   status: ProfessionalAppointmentStatus,
 ) {
-  // Não presumimos o retorno dos RPCs de produção: conferimos o registro legível.
+  // Não presumimos o retorno deste RPC de produção: conferimos o registro legível.
   const result = await supabase.from("appointments").select("id,status").eq("id", appointmentId).maybeSingle();
   if (result.error || result.data?.id !== appointmentId || result.data.status !== status) {
     throw new BookingError("Não foi possível confirmar a alteração. Atualize sua agenda para conferir o resultado.");

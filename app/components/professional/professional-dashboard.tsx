@@ -11,6 +11,9 @@ import {
   monthKey,
   pad,
 } from "../../lib/spa-data";
+import { usePaymentRequests } from "../shared/use-payment-requests";
+import { runPaymentAction } from "../../lib/payment-requests";
+import { paymentErrorMessage } from "../../lib/payment-errors";
 import type { ProfessionalAccess } from "../../lib/services/professional-access-service";
 import {
   completeProfessionalAppointment,
@@ -97,6 +100,9 @@ export function ProfessionalDashboard({
   goPublic: () => void;
   logout: () => void;
 }) {
+  const paymentRequests = usePaymentRequests();
+  const [completionError, setCompletionError] = useState("");
+  const [completionNotice, setCompletionNotice] = useState("");
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
   const requests = useBookingRequests();
   const [section, setSection] = useState("Meu dia");
@@ -249,38 +255,25 @@ export function ProfessionalDashboard({
     );
 
   async function loadAgenda() {
-    const ticket = requests.begin("agenda");
-    if (!ticket) return;
-    const requestedMonth = agendaMonthRef.current;
+    const token = paymentRequests.beginRead("agenda");
+    if (!token) return false;
+    const selectedMonth = agendaMonthRef.current;
     setAgendaLoading(true);
     setAgendaError("");
-
     try {
       const currentMonth = monthKey(new Date());
-
       const todayData = await getProfessionalAgenda(access.id, currentMonth);
-      if (!requests.current(ticket) || requestedMonth !== agendaMonthRef.current) return;
-      const selectedMonthData = requestedMonth === currentMonth
-        ? todayData
-        : await getProfessionalAgenda(access.id, requestedMonth);
-
-      if (!requests.current(ticket) || requestedMonth !== agendaMonthRef.current) return;
-      setTodayAppointments(
-        todayData.filter(
-          (item) =>
-            localDateKey(new Date(item.start)) ===
-            todayKey,
-        ),
-      );
-
+      const selectedMonthData = selectedMonth === currentMonth
+        ? todayData : await getProfessionalAgenda(access.id, selectedMonth);
+      if (!paymentRequests.currentRead(token) || agendaMonthRef.current !== selectedMonth) return false;
+      setTodayAppointments(todayData.filter((item) => localDateKey(new Date(item.start)) === todayKey));
       setMonthAppointments(selectedMonthData);
+      return true;
     } catch {
-      if (requests.current(ticket) && requestedMonth === agendaMonthRef.current) setAgendaError(
-        "Não foi possível carregar sua agenda agora.",
-      );
+      if (paymentRequests.currentRead(token)) setAgendaError("Não foi possível carregar sua agenda agora.");
+      return false;
     } finally {
-      if (requests.current(ticket) && requestedMonth === agendaMonthRef.current) setAgendaLoading(false);
-      requests.finish(ticket);
+      if (paymentRequests.finishRead(token)) setAgendaLoading(false);
     }
   }
 
@@ -788,6 +781,7 @@ export function ProfessionalDashboard({
       return;
     }
 
+    if (paymentRequests.busy()) return;
     const ticket = requests.begin("mutation", true);
     if (!ticket) return;
     setUpdatingAppointmentId(appointment.id);
@@ -812,44 +806,50 @@ export function ProfessionalDashboard({
   }
 
   function openCompletion(appointmentId: string) {
-  setCompletionAppointmentId(appointmentId);
-  setPaymentReceived(true);
-  setPaymentMethod("pix");
-  setPaymentNotes("");
-  setAgendaError("");
-}
-
-async function finishAppointment(
-  event: FormEvent<HTMLFormElement>,
-  appointment: ProfessionalAppointment,
-) {
-  event.preventDefault();
-
-  const ticket = requests.begin("mutation", true);
-  if (!ticket) return;
-  setUpdatingAppointmentId(appointment.id);
-  setAgendaError("");
-
-  try {
-    await completeProfessionalAppointment({
-      appointmentId: appointment.id,
-      paymentReceived,
-      paymentMethod: paymentReceived
-        ? paymentMethod
-        : undefined,
-      paymentNotes,
-    });
-
-    if (!requests.current(ticket)) return;
-    setCompletionAppointmentId("");
-    await loadAgenda();
-  } catch (error) {
-    if (requests.current(ticket)) setAgendaError(bookingErrorMessage(error, "update"));
-  } finally {
-    if (requests.current(ticket)) setUpdatingAppointmentId("");
-    requests.finish(ticket);
+    if (paymentRequests.busy()) return;
+    const appointment = [...todayAppointments, ...monthAppointments].find((item) => item.id === appointmentId);
+    setCompletionAppointmentId(appointmentId);
+    setPaymentReceived(appointment?.paymentStatus !== "paid");
+    setPaymentMethod("pix");
+    setPaymentNotes("");
+    setAgendaError("");
+    setCompletionError("");
+    setCompletionNotice("");
   }
-}
+
+  async function finishAppointment(
+    event: FormEvent<HTMLFormElement>,
+    appointment: ProfessionalAppointment,
+  ) {
+    event.preventDefault();
+    if (requests.busy("mutation")) return;
+    await runPaymentAction(paymentRequests, () => completeProfessionalAppointment({
+      appointmentId: appointment.id, paymentReceived,
+      paymentMethod: paymentReceived ? paymentMethod : undefined, paymentNotes,
+    }), {
+      onStart: () => {
+        setUpdatingAppointmentId(appointment.id); setAgendaError("");
+        setCompletionError(""); setCompletionNotice("");
+      },
+      onConfirmed: (result) => {
+        const update = (items: ProfessionalAppointment[]) => items.map((item) =>
+          item.id === result.appointmentId
+            ? { ...item, status: result.appointmentStatus, paymentStatus: result.paymentStatus } : item);
+        setTodayAppointments(update);
+        setMonthAppointments(update);
+        setCompletionAppointmentId("");
+        setCompletionNotice(result.paymentStatus === "paid"
+          ? "Atendimento concluído. O pagamento consta como confirmado."
+          : result.paymentStatus === "pending"
+            ? "Atendimento concluído. O pagamento continua pendente."
+            : "Atendimento concluído.");
+      },
+      reload: async () => { if (!await loadAgenda()) throw new Error("Recarga indisponível"); },
+      onError: (error) => setCompletionError(paymentErrorMessage(error, "completion")),
+      onRefreshFailure: () => setCompletionNotice("Atendimento concluído. Não foi possível atualizar a agenda. Atualize os dados; não confirme novamente."),
+      onFinish: () => setUpdatingAppointmentId(""),
+    });
+  }
 
 function completionForm(
   item: ProfessionalAppointment,
@@ -866,11 +866,13 @@ function completionForm(
       }
     >
       <strong>Concluir atendimento</strong>
+      {completionError && <p className="professional-agenda-feedback error" role="alert">{completionError}</p>}
 
       <label className="payment-received-check">
         <input
           type="checkbox"
           checked={paymentReceived}
+          disabled={updatingAppointmentId === item.id}
           onChange={(event) =>
             setPaymentReceived(
               event.target.checked,
@@ -886,7 +888,7 @@ function completionForm(
 
         <select
           value={paymentMethod}
-          disabled={!paymentReceived}
+          disabled={!paymentReceived || updatingAppointmentId === item.id}
           onChange={(event) =>
             setPaymentMethod(
               event.target.value as
@@ -913,6 +915,7 @@ function completionForm(
 
         <input
           value={paymentNotes}
+          disabled={updatingAppointmentId === item.id}
           onChange={(event) =>
             setPaymentNotes(event.target.value)
           }
@@ -923,6 +926,7 @@ function completionForm(
       <div>
         <button
           type="button"
+          disabled={updatingAppointmentId === item.id}
           onClick={() =>
             setCompletionAppointmentId("")
           }
@@ -949,7 +953,7 @@ function completionForm(
     item: ProfessionalAppointment,
   ) {
     const updating =
-      updatingAppointmentId === item.id;
+      updatingAppointmentId !== "";
 
     const alreadyStarted =
       new Date(item.start) <= new Date();
@@ -1108,6 +1112,7 @@ function completionForm(
             <button ref={triggerRef} className="dashboard-menu-button icon-button" type="button" aria-label="Abrir menu" title="Abrir menu" aria-expanded={drawerOpen} aria-controls="professional-navigation" onClick={() => setDrawerOpen(true)}><Menu aria-hidden="true" /></button>
           </div>
         </header>
+        {completionNotice && <p className="professional-agenda-feedback" role="status">{completionNotice}</p>}
         {section === "Meu dia" && (
           <>
             <section className="professional-welcome">
