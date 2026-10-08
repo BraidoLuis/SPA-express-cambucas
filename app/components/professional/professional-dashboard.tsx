@@ -1,3 +1,5 @@
+import { useBookingRequests } from "../shared/use-booking-requests";
+import { bookingErrorMessage } from "../../lib/booking-errors";
 import {
   useEffect,
   useLayoutEffect,
@@ -102,6 +104,7 @@ export function ProfessionalDashboard({
   const [completionError, setCompletionError] = useState("");
   const [completionNotice, setCompletionNotice] = useState("");
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
+  const requests = useBookingRequests();
   const [section, setSection] = useState("Meu dia");
   const today = new Date();
   const [agendaMonth, setAgendaMonth] = useState(monthKey(today));
@@ -569,6 +572,7 @@ export function ProfessionalDashboard({
   }
 
   function toggleExtraForm() {
+    if (requests.busy("mutation")) return;
     setExtraError("");
 
     if (showExtraForm) {
@@ -624,6 +628,8 @@ export function ProfessionalDashboard({
       return;
     }
 
+    const ticket = requests.begin("mutation", true);
+    if (!ticket) return;
     setExtraSaving(true);
 
     try {
@@ -636,35 +642,18 @@ export function ProfessionalDashboard({
         notes,
       });
 
+      if (!requests.current(ticket)) return;
       formElement.reset();
       setShowExtraForm(false);
 
       await loadAgenda();
     } catch (error) {
-
-      const message =
-        typeof error === "object" &&
-        error !== null &&
-        "message" in error
-          ? String(error.message)
-          : error instanceof Error
-            ? error.message
-            : "";
-
-      setExtraError(
-        message.includes("appointments_no_professional_overlap") ||
-          message.toLowerCase().includes("conflict")
-          ? "Esse período já está ocupado por outro atendimento."
-          : message.includes("Serviço não encontrado")
-            ? "Esse serviço não está mais disponível para a profissional."
-            : message ||
-              "Não foi possível salvar o atendimento extra.",
-      );
+      if (requests.current(ticket)) setExtraError(bookingErrorMessage(error, "create"));
     } finally {
-      setExtraSaving(false);
+      if (requests.current(ticket)) setExtraSaving(false);
+      requests.finish(ticket);
     }
   }
-
 
 
   async function loadScheduleBlocks() {
@@ -793,6 +782,8 @@ export function ProfessionalDashboard({
     }
 
     if (paymentRequests.busy()) return;
+    const ticket = requests.begin("mutation", true);
+    if (!ticket) return;
     setUpdatingAppointmentId(appointment.id);
     setAgendaError("");
 
@@ -803,18 +794,14 @@ export function ProfessionalDashboard({
         reason,
       );
 
+      if (!requests.current(ticket)) return;
+      setAppointmentToCancel(null);
       await loadAgenda();
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "";
-
-      setAgendaError(
-        message.includes("futuro")
-          ? "Esse atendimento ainda não pode ser concluído ou marcado como ausência."
-          : "Não foi possível atualizar o atendimento.",
-      );
+      if (requests.current(ticket)) setAgendaError(bookingErrorMessage(error, status === "cancelled" ? "cancel" : "update"));
     } finally {
-      setUpdatingAppointmentId("");
+      if (requests.current(ticket)) setUpdatingAppointmentId("");
+      requests.finish(ticket);
     }
   }
 
@@ -835,6 +822,7 @@ export function ProfessionalDashboard({
     appointment: ProfessionalAppointment,
   ) {
     event.preventDefault();
+    if (requests.busy("mutation")) return;
     await runPaymentAction(paymentRequests, () => completeProfessionalAppointment({
       appointmentId: appointment.id, paymentReceived,
       paymentMethod: paymentReceived ? paymentMethod : undefined, paymentNotes,
@@ -1383,6 +1371,7 @@ function completionForm(
                   Data
                   <input
                     name="date"
+                    disabled={extraSaving}
                     type="date"
                     min={todayKey}
                     required
@@ -1393,6 +1382,7 @@ function completionForm(
                   Horário
                   <input
                     name="time"
+                    disabled={extraSaving}
                     type="time"
                     required
                   />
@@ -1402,6 +1392,7 @@ function completionForm(
                   Cliente
                   <input
                     name="client"
+                    disabled={extraSaving}
                     minLength={3}
                     placeholder="Nome da cliente"
                     required
@@ -1412,6 +1403,7 @@ function completionForm(
                   Serviço
                   <select
                     name="service"
+                    disabled={extraSaving}
                     value={extraServiceId}
                     required
                     onChange={(event) => {
@@ -1441,6 +1433,7 @@ function completionForm(
                   Duração em minutos
                   <input
                     name="duration"
+                    disabled={extraSaving}
                     type="number"
                     min="10"
                     max="720"
@@ -1457,6 +1450,7 @@ function completionForm(
                   Observação
                   <input
                     name="notes"
+                    disabled={extraSaving}
                     placeholder="Opcional"
                   />
                 </label>
@@ -2189,6 +2183,7 @@ function completionForm(
             ? updatingAppointmentId === appointmentToCancel.id
             : false
         }
+        feedback={agendaError}
         input={{
           label: "Motivo do cancelamento",
           placeholder: "Ex.: Cliente solicitou o cancelamento",
@@ -2200,8 +2195,6 @@ function completionForm(
           if (!appointmentToCancel) return;
 
           const appointment = appointmentToCancel;
-
-          setAppointmentToCancel(null);
 
           void changeAppointmentStatus(
             appointment,

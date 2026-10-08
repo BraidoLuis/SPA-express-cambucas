@@ -104,6 +104,7 @@ export default function Home() {
   } else if (view === "client" && profile) {
     content = (
       <ClientDashboard
+        key={accountGeneration}
         profile={profile}
         logout={() =>
           logout("login-client")

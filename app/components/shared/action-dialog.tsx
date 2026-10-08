@@ -14,6 +14,7 @@ type ActionDialogProps = {
   confirmLabel: string;
   cancelLabel?: string;
   loading?: boolean;
+  feedback?: string;
   danger?: boolean;
   input?: {
     label: string;
@@ -32,6 +33,7 @@ export function ActionDialog({
   confirmLabel,
   cancelLabel = "Voltar",
   loading = false,
+  feedback = "",
   danger = false,
   input,
   onCancel,
@@ -76,6 +78,7 @@ export function ActionDialog({
   if (!open) return null;
 
   function confirmAction() {
+    if (loading) return;
     const normalizedValue = value.trim();
     const minimumLength = input?.minLength || 0;
 
@@ -147,9 +150,9 @@ export function ActionDialog({
           </label>
         )}
 
-        {error && (
-          <p className="action-dialog-error">
-            {error}
+        {(error || feedback) && (
+          <p className="action-dialog-error" role="alert">
+            {error || feedback}
           </p>
         )}
 

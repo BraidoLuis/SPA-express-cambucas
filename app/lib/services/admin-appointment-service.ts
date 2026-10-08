@@ -1,3 +1,4 @@
+import { BookingError, bookingErrorMessage, confirmedAppointmentId } from "../booking-errors";
 import { createClient } from "../../../lib/supabase/client";
 import { getAvailableSlots, type AvailableSlot } from "./availability-service";
 
@@ -154,10 +155,10 @@ export async function createAdminAppointment(input: {
   const body = (await response.json()) as { id?: string; error?: string };
 
   if (!response.ok || !body.id) {
-    throw new Error(body.error || "Não foi possível criar o agendamento.");
+    throw new BookingError(bookingErrorMessage({ message: body.error, code: response.status === 403 || response.status === 401 ? "42501" : undefined }, "create"));
   }
 
-  return body.id;
+  return confirmedAppointmentId(body.id);
 }
 
 export async function createAdminScheduleBlock(input: {

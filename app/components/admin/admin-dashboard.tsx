@@ -1,4 +1,5 @@
 "use client";
+import { useBookingRequests } from "../shared/use-booking-requests";
 import { useEffect, useRef, useState } from "react";
 import { usePaymentRequests } from "../shared/use-payment-requests";
 import { reloadConfirmedPayment, runPaymentAction } from "../../lib/payment-requests";
@@ -1465,6 +1466,7 @@ export function AdminDashboard({
   const paymentRequests = usePaymentRequests();
   const [paymentNotice, setPaymentNotice] = useState("");
   const { open: drawerOpen, setOpen: setDrawerOpen, close: closeDrawer, drawerRef, triggerRef } = useDashboardDrawer();
+  const requests = useBookingRequests();
   const [section, setSection] = useState("Visão geral");
   const [filter, setFilter] = useState("Todos");
   const [addOpen, setAddOpen] = useState(false);
@@ -1567,8 +1569,11 @@ export function AdminDashboard({
   }
 
   async function handleScheduleChanged() {
+    const ticket = requests.begin("revision");
+    if (!ticket) return;
     await reloadAdminData();
-    setDataRevision((value) => value + 1);
+    if (requests.current(ticket)) setDataRevision((value) => value + 1);
+    requests.finish(ticket);
   }
 
   function quickAction(action: "appointment" | "service" | "professional" | "block") {

@@ -1,3 +1,4 @@
+import { BookingError, bookingErrorMessage } from "../booking-errors";
 import { PaymentOperationError, paymentErrorMessage, completionConfirmationUncertain } from "../payment-errors";
 import { createClient } from "../../../lib/supabase/client";
 import {
@@ -144,8 +145,9 @@ export async function updateProfessionalAppointmentStatus(
   );
 
   if (error) {
-    throw error;
+    throw new BookingError(bookingErrorMessage(error, "update"));
   }
+  await confirmProfessionalStatus(supabase, appointmentId, status);
 
   /*
    * Confirmação, conclusão e ausência não
@@ -270,5 +272,17 @@ export async function completeProfessionalAppointment(
     };
   } catch (error) {
     throw new PaymentOperationError(paymentErrorMessage(error, "completion"));
+  }
+}
+
+async function confirmProfessionalStatus(
+  supabase: ReturnType<typeof createClient>,
+  appointmentId: string,
+  status: ProfessionalAppointmentStatus,
+) {
+  // Não presumimos o retorno deste RPC de produção: conferimos o registro legível.
+  const result = await supabase.from("appointments").select("id,status").eq("id", appointmentId).maybeSingle();
+  if (result.error || result.data?.id !== appointmentId || result.data.status !== status) {
+    throw new BookingError("Não foi possível confirmar a alteração. Atualize sua agenda para conferir o resultado.");
   }
 }
