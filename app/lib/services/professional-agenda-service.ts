@@ -214,7 +214,8 @@ export async function completeProfessionalAppointment(
     let paymentReceived = input.paymentReceived;
     if (paymentReceived) {
       // Evita regravar um pagamento já confirmado (inclusive pela administradora).
-      // Esta leitura NÃO elimina a corrida entre sessões: o RPC precisa de proteção atômica.
+      // Compatibilidade com a versão anterior do RPC; a proteção é feita pelos locks/UPDATE do SQL.
+      // Esta leitura NÃO elimina a corrida entre sessões.
       const existing = await supabase.from("payments").select("id,appointment_id,status")
         .eq("appointment_id", input.appointmentId).maybeSingle();
       if (existing.error || !existing.data || typeof existing.data.id !== "string" ||
@@ -234,14 +235,25 @@ export async function completeProfessionalAppointment(
     if (error) throw error;
 
     // Contrato jsonb fornecido da função de produção, sem inferir retornos das migrations.
-    const result = data as { appointment_id?: unknown; appointment_status?: unknown; payment_status?: unknown } | null;
+    const result = data as { appointment_id?: unknown; appointment_status?: unknown; payment_status?: unknown;
+      payment_updated?: unknown; payment_id?: unknown } | null;
     if (!result || result.appointment_id !== input.appointmentId ||
         result.appointment_status !== "completed" || typeof result.payment_status !== "string" ||
         !paymentStatuses.includes(result.payment_status) || (paymentReceived && result.payment_status !== "paid")) {
       throw new PaymentOperationError(completionConfirmationUncertain);
     }
 
-    // A função devolve 'completed' como literal; confirmamos também o estado legível salvo.
+    // Campos aditivos do RPC protegido. O JSON legado continua aceito com as verificações anteriores.
+    const hasPaymentOutcome = Object.hasOwn(result, "payment_updated") || Object.hasOwn(result, "payment_id");
+    if (hasPaymentOutcome && (typeof result.payment_updated !== "boolean" ||
+        !Object.hasOwn(result, "payment_id") || (result.payment_id !== null &&
+         (typeof result.payment_id !== "string" || !result.payment_id.trim())) ||
+        (result.payment_updated && (!paymentReceived || result.payment_status !== "paid")))) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
+    const paymentPreserved = hasPaymentOutcome && result.payment_updated === false;
+
+    // Confirmamos também o estado legível salvo, inclusive o ID retornado pelo RPC protegido.
     const saved = await Promise.resolve(supabase.from("appointments")
       .select("id,status,payments(id,status,method,confirmed_by,paid_at)")
       .eq("id", input.appointmentId).maybeSingle())
@@ -257,10 +269,15 @@ export async function completeProfessionalAppointment(
         !payment.id.trim() || !paymentStatuses.includes(payment.status)))) {
       throw new PaymentOperationError(completionConfirmationUncertain);
     }
+    if (hasPaymentOutcome && result.payment_id !== (payment?.id ?? null)) {
+      throw new PaymentOperationError(completionConfirmationUncertain);
+    }
     const savedStatus = payment?.status ?? "pending";
     if (savedStatus !== result.payment_status || (paymentReceived &&
         (!payment || typeof payment.id !== "string" || !payment.id.trim() ||
-         payment.method !== input.paymentMethod || typeof payment.confirmed_by !== "string" ||
+         (!paymentPreserved && payment.method !== input.paymentMethod) ||
+         (paymentPreserved && !["pix", "dinheiro", "cartao", "outro"].includes(payment.method)) ||
+         typeof payment.confirmed_by !== "string" ||
          !payment.confirmed_by.trim() || typeof payment.paid_at !== "string" ||
          !Number.isFinite(Date.parse(payment.paid_at))))) {
       throw new PaymentOperationError(completionConfirmationUncertain);

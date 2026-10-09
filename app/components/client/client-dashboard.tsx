@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { pad, type Service } from "../../lib/spa-data";
+import type { Service } from "../../lib/spa-data";
+import { bookingToday, formatBookingDate, isBookingDate, shiftBookingDate } from "../../lib/booking-calendar";
 import { Logo, ThemeToggle } from "../shared/spa-ui";
 import type { AuthProfile } from "../../lib/services/auth-service";
 import { getClientCatalog } from "../../lib/services/catalog-service";
@@ -36,10 +37,9 @@ function ServiceScheduling({
   onAppointmentCreated: () => void | Promise<void>;
 }) {
   const requests = useBookingRequests();
-  const today = new Date();
-  const firstAvailable = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+  const today = bookingToday();
   const [selected, setSelected] = useState<Service | null>(null);
-  const [selectedDate, setSelectedDate] = useState(firstAvailable.toISOString().slice(0, 10));
+  const [selectedDate, setSelectedDate] = useState(bookingToday);
   const [time, setTime] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -65,6 +65,8 @@ function ServiceScheduling({
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [slotsError, setSlotsError] = useState("");
   const [availabilityReload, setAvailabilityReload] = useState(0);
+  const availabilityVersion = useRef(0);
+  const selectedDateRef = useRef(selectedDate);
   const clientCarousel = useRef<HTMLDivElement>(null);
   const filters = ["Todos", ...Array.from(new Set(catalog.map((service) => service.category)))];
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((service) => service.professionalId).map((service) => [service.professionalId!, { id: service.professionalId!, name: service.professionalFullName || service.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
@@ -89,9 +91,11 @@ function ServiceScheduling({
     }
 
     let cancelled = false;
+    const version = availabilityVersion.current;
+    const isCurrent = () => !cancelled && version === availabilityVersion.current;
 
     queueMicrotask(() => {
-      if (cancelled) return;
+      if (!isCurrent()) return;
 
       setSlotsLoading(true);
       setSlotsError("");
@@ -119,20 +123,20 @@ function ServiceScheduling({
         ).catch(() => [] as BookingGapSuggestion[]),
       ])
         .then(([slots, gaps]) => {
-          if (cancelled) return;
+          if (!isCurrent()) return;
 
           setAvailableSlots(slots);
           setGapSuggestions(gaps);
         })
         .catch(() => {
-          if (!cancelled) {
+          if (isCurrent()) {
             setSlotsError(
               "Não foi possível consultar a agenda agora.",
             );
           }
         })
         .finally(() => {
-          if (!cancelled) {
+          if (isCurrent()) {
             setSlotsLoading(false);
           }
         });
@@ -146,6 +150,39 @@ function ServiceScheduling({
     selectedDate,
     availabilityReload,
   ]);
+  function resetAvailability(loading: boolean) {
+    // Invalida imediatamente, antes de o cleanup do efeito acompanhar a nova data.
+    availabilityVersion.current += 1;
+    setAvailableSlots([]);
+    setGapSuggestions([]);
+    setTime("");
+    setSelectedSlot(null);
+    setSlotsError("");
+    setBookingError("");
+    setSlotsLoading(loading);
+  }
+
+  function selectDate(value: string) {
+    if (requests.busy("create") || !isBookingDate(value) || value < bookingToday()) return;
+    if (value === selectedDateRef.current) return;
+    selectedDateRef.current = value;
+    resetAvailability(true);
+    setSelectedDate(value);
+  }
+
+  function moveDate(days: number) {
+    selectDate(shiftBookingDate(selectedDateRef.current, days));
+  }
+
+  function openService(service: Service) {
+    if (requests.busy("create")) return;
+    const date = bookingToday();
+    selectedDateRef.current = date;
+    resetAvailability(true);
+    setSelectedDate(date);
+    setSelected(service);
+  }
+
   async function confirmAppointment() {
     if (
       !selected?.id ||
@@ -272,7 +309,7 @@ function ServiceScheduling({
           {selected.name} com {selected.professional}
         </p>
         <div className="confirmed-details">
-          <span>▣ {new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", {weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span>
+          <span>▣ {formatBookingDate(selectedDate, {weekday:"long",day:"2-digit",month:"long",year:"numeric"})}</span>
           <span>
             ◷ {time} · {selected.duration} minutos
           </span>
@@ -317,9 +354,8 @@ function ServiceScheduling({
           onClick={() => {
             if (requests.busy("create")) return;
             setConfirmed(false);
+            resetAvailability(false);
             setSelected(null);
-            setTime("");
-            setSelectedSlot(null);
             setAppointmentId("");
             setAvailabilityReload((value) => value + 1);
           }}
@@ -336,9 +372,8 @@ function ServiceScheduling({
           disabled={bookingSubmitting}
           onClick={() => {
             if (requests.busy("create")) return;
+            resetAvailability(false);
             setSelected(null);
-            setTime("");
-            setSelectedSlot(null);
             setBookingError("");
           }}
           style={{ display: "flex", alignItems: "center", gap: "4px" }}
@@ -373,30 +408,48 @@ function ServiceScheduling({
             <h2>Disponibilidade de {selected.professional}</h2>
             <p>Selecione uma data para ver os horários livres.</p>
             <div className="availability-month">
-              <label>Data do atendimento</label>
-              <input type="date" disabled={bookingSubmitting} min={today.toISOString().slice(0, 10)} value={selectedDate} onChange={(event) => {if (requests.busy("create")) return;setSelectedDate(event.target.value);setTime("");setSelectedSlot(null);setBookingError("");}} />
+              <label htmlFor="client-booking-date">Data do atendimento</label>
+              <div className="availability-date-controls">
+                <button
+                  type="button"
+                  aria-label="Dia anterior"
+                  disabled={bookingSubmitting || selectedDate <= today}
+                  onClick={() => moveDate(-1)}
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <input
+                  id="client-booking-date"
+                  type="date"
+                  disabled={bookingSubmitting}
+                  min={today}
+                  value={selectedDate}
+                  onChange={(event) => selectDate(event.target.value)}
+                />
+                <button
+                  type="button"
+                  aria-label="Próximo dia"
+                  disabled={bookingSubmitting}
+                  onClick={() => moveDate(1)}
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </div>
             </div>
             <div className="availability-days">
-              {Array.from({length:6},(_,index)=>{const date=new Date(`${selectedDate}T12:00:00`);date.setDate(date.getDate()+index);return date;}).map((date) => {
-                const value=date.toISOString().slice(0,10);
-                return (
+              {Array.from({ length: 6 }, (_, index) => shiftBookingDate(selectedDate, index)).map((value) => (
                 <button
+                  type="button"
                   disabled={bookingSubmitting}
                   className={selectedDate === value ? "active" : ""}
-                  onClick={() => {
-                    if (requests.busy("create")) return;
-                    setSelectedDate(value);
-                    setTime("");
-                    setSelectedSlot(null);
-                    setBookingError("");
-                  }}
+                  onClick={() => selectDate(value)}
                   key={value}
                 >
-                  <small>{date.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","").toUpperCase()}</small>
-                  <b>{pad(date.getDate())}</b>
+                  <small>{formatBookingDate(value, { weekday: "short" }).replace(".", "").toUpperCase()}</small>
+                  <b>{value.slice(8, 10)}</b>
                   <i>horários livres</i>
                 </button>
-              )})}
+              ))}
             </div>
             <label>Horários disponíveis</label>
             <div className="available-times">
@@ -530,7 +583,7 @@ function ServiceScheduling({
             <div className="schedule-summary">
               <div>
                 <span>DATA</span>
-                <b>{new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR")}</b>
+                <b>{formatBookingDate(selectedDate)}</b>
               </div>
               <div>
                 <span>HORÁRIO</span>
@@ -543,7 +596,7 @@ function ServiceScheduling({
             </div>
             <button
               className="primary confirm-schedule"
-              disabled={!selectedSlot || bookingSubmitting || selectedDate < today.toISOString().slice(0, 10)}
+              disabled={!selectedSlot || bookingSubmitting || selectedDate < today}
               onClick={confirmAppointment}
             >
               {bookingSubmitting ? "Confirmando horário..." : "Confirmar agendamento →"}
@@ -617,7 +670,7 @@ function ServiceScheduling({
                 <span>◷ {s.duration} min</span>
                 <b>R$ {s.price},00</b>
               </div>
-              <button onClick={() => setSelected(s)} style={{ marginTop: "auto" }}>
+              <button onClick={() => openService(s)} style={{ marginTop: "auto" }}>
                 Ver horários disponíveis →
               </button>
             </div>
@@ -660,6 +713,9 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
   const requests = useBookingRequests();
   const [rules, setRules] = useState<CancellationRules | null>(null);
   const [cancellationFeedback, setCancellationFeedback] = useState("");
+  const cancellationNotice = rules?.cancellationEnabled
+    ? "Prazo de cancelamento encerrado."
+    : cancellationUnavailableMessage(rules);
   const [tab, setTab] = useState("Serviços");
   const [appointments, setAppointments] = useState<ClientAppointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(true);
@@ -848,40 +904,42 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                 <div className="date-box"><b>{new Date(nextAppointment.start).getDate().toString().padStart(2, "0")}</b><span>{new Date(nextAppointment.start).toLocaleDateString("pt-BR", { month: "short" }).replace(".", "").toUpperCase()}</span></div>
                 <div><span className="eyebrow">PRÓXIMO AGENDAMENTO</span><h2>{nextAppointment.serviceName}</h2><p>{appointmentLongDate(nextAppointment.start)} às {appointmentTime(nextAppointment.start)} · com {nextAppointment.professionalName}</p><div><span>◷ {nextAppointment.duration} minutos</span><span>⌖ SPA Express Cambucás</span></div></div>
                 <em className="confirmado">{appointmentStatusLabel[nextAppointment.status]}</em>
-                <div className="appointment-buttons">
-                  <button
-                    onClick={() =>
-                      setTab("Meus agendamentos")
-                    }
-                  >
-                    Detalhes
-                  </button>
+                <div className="appointment-buttons client-booking-actions">
+                  <div className="client-booking-action-buttons">
+                    <button
+                      onClick={() =>
+                        setTab("Meus agendamentos")
+                      }
+                    >
+                      Detalhes
+                    </button>
 
-                  <button
-                    disabled={
-                      !!cancellingId ||
-                      !nextAppointmentCanBeCancelled
-                    }
-                    title={
-                      nextAppointmentCanBeCancelled
-                        ? "Cancelar agendamento"
-                        : cancellationUnavailableMessage(rules)
-                    }
-                    onClick={() =>
-                      void openCancellation(nextAppointment)
-                    }
-                  >
-                    {cancellingId ===
-                    nextAppointment.id
-                      ? "Cancelando..."
-                      : nextAppointmentCanBeCancelled
-                        ? "Cancelar"
-                        : rules ? "Prazo encerrado" : "Indisponível"}
-                  </button>
+                    <button
+                      disabled={
+                        !!cancellingId ||
+                        !nextAppointmentCanBeCancelled
+                      }
+                      title={
+                        nextAppointmentCanBeCancelled
+                          ? "Cancelar agendamento"
+                          : cancellationUnavailableMessage(rules)
+                      }
+                      onClick={() =>
+                        void openCancellation(nextAppointment)
+                      }
+                    >
+                      {cancellingId ===
+                      nextAppointment.id
+                        ? "Cancelando..."
+                        : nextAppointmentCanBeCancelled
+                          ? "Cancelar"
+                          : rules ? "Prazo encerrado" : "Indisponível"}
+                    </button>
 
+                  </div>
                   {!nextAppointmentCanBeCancelled && (
                     <small className="client-cancellation-notice">
-                      {cancellationUnavailableMessage(rules)}
+                      {cancellationNotice}
                     </small>
                   )}
                 </div>
@@ -1025,36 +1083,40 @@ export function ClientDashboard({ logout, profile }: { logout: () => void; profi
                       {appointmentStatusLabel[item.status]}
                     </em>
 
-                    <button onClick={goServices}>
-                      Agendar outro
-                    </button>
+                    <div className="client-booking-actions">
+                      <div className="client-booking-action-buttons">
+                        <button onClick={goServices}>
+                          Agendar outro
+                        </button>
 
-                    <button
-                      disabled={
-                        !!cancellingId ||
-                        !cancellationAvailable
-                      }
-                      title={
-                        cancellationAvailable
-                          ? "Cancelar agendamento"
-                          : cancellationUnavailableMessage(rules)
-                      }
-                      onClick={() =>
-                        void openCancellation(item)
-                      }
-                    >
-                      {cancellingId === item.id
-                        ? "Cancelando..."
-                        : cancellationAvailable
-                          ? "Cancelar"
-                          : rules ? "Prazo encerrado" : "Indisponível"}
-                    </button>
+                        <button
+                          disabled={
+                            !!cancellingId ||
+                            !cancellationAvailable
+                          }
+                          title={
+                            cancellationAvailable
+                              ? "Cancelar agendamento"
+                              : cancellationUnavailableMessage(rules)
+                          }
+                          onClick={() =>
+                            void openCancellation(item)
+                          }
+                        >
+                          {cancellingId === item.id
+                            ? "Cancelando..."
+                            : cancellationAvailable
+                              ? "Cancelar"
+                              : rules ? "Prazo encerrado" : "Indisponível"}
+                        </button>
 
-                    {!cancellationAvailable && (
-                      <small className="client-cancellation-notice">
-                        {cancellationUnavailableMessage(rules)}
-                      </small>
-                    )}
+                      </div>
+                      {!cancellationAvailable && (
+                        <small className="client-cancellation-notice">
+                          {cancellationNotice}
+                        </small>
+                      )}
+                    </div>
                   </div>
                 );
               })}
