@@ -24,6 +24,8 @@ import {
 } from "../../lib/services/public-settings-service";
 import { ShowcaseCarousel } from "../shared/showcase-carousel";
 import { ProfessionalFilter } from "../shared/professional-filter";
+import { ServiceSearch } from "../shared/service-search";
+import { matchesServiceSearch } from "../../lib/service-search";
 
 const weekdayNames: Record<string, string> = {
   "0": "Dom",
@@ -74,6 +76,7 @@ export function PublicSite({
 }) {
   const [menu, setMenu] = useState(false);
   const [homeFilter, setHomeFilter] = useState("Todos");
+  const [homeSearch, setHomeSearch] = useState("");
   const [homeProfessional, setHomeProfessional] = useState("all");
   const [aboutSlide, setAboutSlide] = useState(0);
   const [heroSlide, setHeroSlide] = useState(0);
@@ -118,7 +121,7 @@ export function PublicSite({
 
   const serviceFilters = useMemo(() => ["Todos", ...new Set(catalog.map((item) => item.category))], [catalog]);
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((item) => item.professionalId).map((item) => [item.professionalId!, { id: item.professionalId!, name: item.professionalFullName || item.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
-  const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional));
+  const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional) && matchesServiceSearch(item.name, homeSearch));
   const eliane = catalog.find((item) =>
     (item.professionalFullName || item.professional)
       .toLocaleLowerCase("pt-BR")
@@ -527,6 +530,10 @@ export function PublicSite({
               </h2>
             </div>
           </div>
+          <ServiceSearch
+            value={homeSearch}
+            onChange={(value) => { setHomeSearch(value); resetHomeCarousel(); }}
+          />
           <div className="services-tools">
             <div className="service-filter-group"><div className="service-filter-buttons">
               {serviceFilters.map((f) => (
@@ -557,7 +564,7 @@ export function PublicSite({
               </button>
             </div>
           </div>
-          {visibleServices.length === 0 && <div className="catalog-feedback empty"><p>Nenhum serviço encontrado para esta combinação.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); resetHomeCarousel(); }}>Limpar filtros</button></div>}
+          {visibleServices.length === 0 && <div className="catalog-feedback empty" role="status"><p>Nenhum serviço corresponde à pesquisa e aos filtros selecionados.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); setHomeSearch(""); resetHomeCarousel(); }}>Limpar filtros</button></div>}
           <div className="service-grid mobile-carousel" ref={homeCarousel}>
             {visibleServices.map((s, index) => (
               <article className="service-card motion-card" style={{ "--stagger-index": index } as React.CSSProperties} key={`${s.id || s.name}-${s.professionalId || "fallback"}`}>

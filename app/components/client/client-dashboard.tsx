@@ -23,6 +23,8 @@ import { ServiceCoverImage } from "../shared/service-cover-image";
 import { ArrowLeft, CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Home, LogOut, Menu, Plus, UserRound, X } from "lucide-react";
 import { ShowcaseCarousel } from "../shared/showcase-carousel";
 import { ProfessionalFilter } from "../shared/professional-filter";
+import { ServiceSearch } from "../shared/service-search";
+import { matchesServiceSearch } from "../../lib/service-search";
 import { useDashboardDrawer } from "../shared/use-dashboard-drawer";
 import {
   buildAppointmentWhatsAppUrl,
@@ -55,6 +57,7 @@ function ServiceScheduling({
   const [bookingErrorType, setBookingErrorType] =
     useState<BookingErrorType>("generic");
   const [catalogFilter, setCatalogFilter] = useState("Todos");
+  const [catalogSearch, setCatalogSearch] = useState("");
   const [professionalFilter, setProfessionalFilter] = useState("all");
   const [catalog, setCatalog] = useState<Service[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -70,7 +73,7 @@ function ServiceScheduling({
   const clientCarousel = useRef<HTMLDivElement>(null);
   const filters = ["Todos", ...Array.from(new Set(catalog.map((service) => service.category)))];
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((service) => service.professionalId).map((service) => [service.professionalId!, { id: service.professionalId!, name: service.professionalFullName || service.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
-  const visibleServices = catalog.filter((service) => (catalogFilter === "Todos" || service.category === catalogFilter) && (professionalFilter === "all" || service.professionalId === professionalFilter));
+  const visibleServices = catalog.filter((service) => (catalogFilter === "Todos" || service.category === catalogFilter) && (professionalFilter === "all" || service.professionalId === professionalFilter) && matchesServiceSearch(service.name, catalogSearch));
   function resetClientCarousel() { clientCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
   const loadCatalog = useCallback(async () => {
     const ticket = requests.begin("catalog");
@@ -618,6 +621,10 @@ function ServiceScheduling({
           responsável.
         </p>
       </div>
+      <ServiceSearch
+        value={catalogSearch}
+        onChange={(value) => { setCatalogSearch(value); resetClientCarousel(); }}
+      />
       <div className="services-tools client-tools">
         <div className="catalog-filter-group"><div className="catalog-filters">
           {filters.map((f) => (
@@ -648,7 +655,7 @@ function ServiceScheduling({
       {catalogLoading && <div className="catalog-feedback"><span>✦</span><p>Carregando os serviços...</p></div>}
       {catalogError && <div className="catalog-feedback error"><p>{catalogError}</p><button onClick={loadCatalog}>Tentar novamente</button></div>}
       {!catalogLoading && !catalogError && catalog.length === 0 && <div className="catalog-feedback"><p>Nenhum serviço disponível no momento.</p></div>}
-      {!catalogLoading && !catalogError && catalog.length > 0 && visibleServices.length === 0 && <div className="catalog-feedback empty"><p>Nenhum serviço encontrado para esta combinação.</p><button type="button" onClick={() => { setCatalogFilter("Todos"); setProfessionalFilter("all"); resetClientCarousel(); }}>Limpar filtros</button></div>}
+      {!catalogLoading && !catalogError && catalog.length > 0 && visibleServices.length === 0 && <div className="catalog-feedback empty" role="status"><p>Nenhum serviço corresponde à pesquisa e aos filtros selecionados.</p><button type="button" onClick={() => { setCatalogFilter("Todos"); setProfessionalFilter("all"); setCatalogSearch(""); resetClientCarousel(); }}>Limpar filtros</button></div>}
       <div className="client-service-grid mobile-carousel" ref={clientCarousel}>
         {visibleServices.map((s) => (
           <article key={`${s.id}-${s.professionalId}`}>

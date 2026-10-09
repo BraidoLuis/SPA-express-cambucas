@@ -5119,6 +5119,86 @@ small {
   flex-wrap: wrap;
 }
 
+
+.service-search {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 0 18px;
+}
+
+.service-search > label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.service-search-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-left: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.service-search-control:focus-within {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}
+
+.service-search-control svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.service-search-control input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+
+.service-search-control input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.service-search-control button {
+  flex: 0 0 44px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.dark-theme .service-search > label,
+.dark-theme .service-search-control {
+  color: var(--dark-text);
+}
+
+.dark-theme .service-search-control {
+  border-color: var(--dark-border);
+  background: var(--dark-surface-3);
+}
+
+.dark-theme .service-search-control input {
+  background: transparent !important;
+}
+
 .professional-filter {
   display: flex;
   align-items: center;

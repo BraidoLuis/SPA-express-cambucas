@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPageShell } from "../components/public/legal-page-shell";
 
 export const metadata: Metadata = {
-  title: "Termos de Uso | SPA Express Cambucás",
+  title: "Termos de Uso",
   description:
     "Conheça as condições de uso, cadastro e agendamento do SPA Express Cambucás.",
 };
@@ -14,7 +14,7 @@ export default function TermsOfUsePage() {
       eyebrow="TRANSPARÊNCIA E CONFIANÇA"
       title="Termos de Uso"
       description="Estes termos apresentam as regras para utilização do site, criação de conta e realização de agendamentos."
-      lastUpdated="22 de setembro de 2026"
+      lastUpdated="9 de outubro de 2026"
     >
       <nav
         className="legal-index"
@@ -236,6 +236,27 @@ export default function TermsOfUsePage() {
           Caso não possa comparecer, a cliente deverá cancelar ou
           solicitar alteração com a maior antecedência possível,
           permitindo que o horário seja disponibilizado novamente.
+        </p>
+
+        <p>
+          O cancelamento online depende da antecedência mínima exigida
+          e informada pela plataforma, atualmente de duas horas antes
+          do início do atendimento.
+        </p>
+
+        <p>
+          Quando essa exigência estiver em vigor, o cancelamento online
+          será bloqueado dentro da janela informada, inclusive exatamente
+          no limite. Com o prazo atual, é preciso que faltem mais de duas
+          horas para o atendimento. Quando essa exigência não estiver em
+          vigor, esse prazo adicional não se aplica; as demais condições
+          de cancelamento continuam válidas.
+        </p>
+
+        <p>
+          Após o encerramento do prazo, a cliente deverá entrar em contato
+          com o SPA para consultar as alternativas disponíveis. Esse
+          contato não garante cancelamento ou reagendamento.
         </p>
 
         <p>
