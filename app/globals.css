@@ -16079,18 +16079,40 @@ body.dark .oauth-legal a {
   color: #dfbd94;
 }
 
+.client-booking-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  min-width: 0;
+  max-width: 230px;
+}
+
+.client-booking > .client-booking-actions {
+  flex: 0 1 230px;
+}
+
+.client-booking > div:not(.client-booking-actions),
+.next-appointment > div:nth-child(2) {
+  min-width: 0;
+}
+
+.client-booking-actions .client-booking-action-buttons {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
 .client-cancellation-notice {
-  grid-column: 1 / -1;
   display: block;
+  max-width: 100%;
   margin-top: 4px;
   color: #9a623f;
   font-size: 10px;
   line-height: 1.5;
-}
-
-.appointment-buttons .client-cancellation-notice {
-  max-width: 230px;
   text-align: right;
+  overflow-wrap: anywhere;
 }
 
 .client-booking button:disabled,
@@ -16105,9 +16127,76 @@ body.dark .client-cancellation-notice {
   color: #e0ad87;
 }
 
+.service-schedule-detail .schedule-layout > section {
+  min-width: 0;
+}
+
+.availability-month {
+  flex-wrap: wrap;
+}
+
+.availability-date-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.availability-date-controls input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  margin: 0;
+}
+
+.availability-date-controls button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 36px;
+  color: var(--plum);
+}
+
+.availability-date-controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 800px) {
+  .availability-date-controls {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
 @media (max-width: 640px) {
-  .appointment-buttons .client-cancellation-notice {
+  .client-booking > div:not(.client-booking-actions),
+  .next-appointment > div:nth-child(2) {
+    flex-basis: 60%;
+  }
+
+  .client-booking {
+    flex-wrap: wrap;
+  }
+
+  .client-booking > .client-booking-actions,
+  .next-appointment > .client-booking-actions {
+    flex-basis: 100%;
+    width: 100%;
     max-width: none;
+    align-items: flex-start;
+  }
+
+  .client-cancellation-notice {
     text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .service-schedule-detail .availability h2 {
+    font-size: 30px;
   }
 }

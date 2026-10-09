@@ -1,0 +1,302 @@
+{
+  "startedAt": "2026-10-09T01:34:26.364Z",
+  "engine": {
+    "host": "127.0.0.1",
+    "port": 54471,
+    "version": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35213, 64-bit",
+    "database": "spa_payment_test",
+    "clusterRoot": "spa_test_root",
+    "isSuperuser": "on",
+    "ownerBypassRLS": true,
+    "ownerIsSuperuser": false
+  },
+  "sourceHashes": {
+    "tests/postgres/payment-local-bootstrap.sql": "343d7ba83aab71d3bfb815c04599552030baf52258fbda21e334c1e01c18bb66",
+    "tests/postgres/payment-local-fixtures.sql": "19e56e94b3d711c682f03e45a121a290bcf74c2fe60acd2f0ce3fdb2434e3341",
+    "docs/sql/payment-concurrency-apply.sql": "4ac52734d2423d88cd238f7612401ad04514e9a05bf8eecf9eb602f5ed4ce018",
+    "docs/sql/payment-concurrency-verify.sql": "4d7446f27614f3667c080013c448f1a68e2c6ca13ffc729c44ec7eb110a090ba",
+    "docs/sql/payment-concurrency-rollback.sql": "f7e0ebbd0788d95510589ac7896393176e8a4ff0a61b351d5c62411a739989a4",
+    "tests/sql/payment-concurrency-regression.sql": "e40bf7ebc81c1fa37b4ad1cf3361bf157ce0e07c3916d827b907b444d260d492"
+  },
+  "assertions": [
+    {
+      "name": "docs/sql/payment-concurrency-verify.sql",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "name": "ACL dos dois RPCs",
+      "passed": true,
+      "acl": {
+        "anon:complete_professional_appointment": false,
+        "anon:update_professional_appointment_status": false,
+        "service_role:complete_professional_appointment": false,
+        "authenticated:complete_professional_appointment": true,
+        "service_role:update_professional_appointment_status": false,
+        "authenticated:update_professional_appointment_status": true
+      }
+    },
+    {
+      "name": "tests/sql/payment-concurrency-regression.sql",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "name": "ROLLBACK transacional preservou atendimento/pagamento/auditoria/notificações",
+      "passed": true
+    },
+    {
+      "name": "Admin confirmou antes; pagamento preservado integralmente",
+      "passed": true
+    },
+    {
+      "name": "UPDATE direto profissional de payments bloqueado",
+      "passed": true
+    },
+    {
+      "name": "Perfil dono inativo rejeitado pelos dois RPCs",
+      "passed": true
+    },
+    {
+      "name": "Vínculo dono inativo rejeitado pelos dois RPCs",
+      "passed": true
+    },
+    {
+      "name": "Perfil cliente com vínculo dono rejeitado pelos dois RPCs",
+      "passed": true
+    },
+    {
+      "name": "Perfil admin com vínculo dono rejeitado pelos dois RPCs",
+      "passed": true
+    },
+    {
+      "name": "EXECUTE negado para anon",
+      "passed": true
+    },
+    {
+      "name": "EXECUTE negado para service_role",
+      "passed": true
+    },
+    {
+      "name": "admin_durante_conclusao",
+      "passed": true
+    },
+    {
+      "name": "profissional_antes_admin",
+      "passed": true
+    },
+    {
+      "name": "duas_conclusoes",
+      "passed": true
+    },
+    {
+      "name": "cancelamento_antes_conclusao",
+      "passed": true
+    },
+    {
+      "name": "conclusao_antes_cancelamento",
+      "passed": true
+    },
+    {
+      "name": "profiles revalidado após espera de lock",
+      "passed": true
+    },
+    {
+      "name": "professionals revalidado após espera de lock",
+      "passed": true
+    },
+    {
+      "name": "docs/sql/payment-concurrency-rollback.sql",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "name": "Rollback real restaurou os fingerprints originais",
+      "passed": true,
+      "hashes": {
+        "complete_professional_appointment": "943cea9e0ea657ace328db46d34ce47d",
+        "update_professional_appointment_status": "a59f05173ea6811e1c22e5eec3539ce9"
+      }
+    },
+    {
+      "name": "docs/sql/payment-concurrency-apply.sql",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "name": "docs/sql/payment-concurrency-verify.sql",
+      "passed": true,
+      "exitCode": 0
+    },
+    {
+      "name": "tests/sql/payment-concurrency-regression.sql",
+      "passed": true,
+      "exitCode": 0
+    }
+  ],
+  "concurrency": [
+    {
+      "name": "admin_durante_conclusao",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 23404,
+        "blockerPid": 21896,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:39.460Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 0,
+      "sessionBSQLState": null,
+      "finalStatus": "completed",
+      "finalPaymentStatus": "paid"
+    },
+    {
+      "name": "profissional_antes_admin",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 2968,
+        "blockerPid": 9832,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:40.181Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 0,
+      "sessionBSQLState": null,
+      "finalStatus": "completed",
+      "finalPaymentStatus": "paid"
+    },
+    {
+      "name": "duas_conclusoes",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 23844,
+        "blockerPid": 4836,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:41.156Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 3,
+      "sessionBSQLState": "P0001",
+      "finalStatus": "completed",
+      "finalPaymentStatus": "paid"
+    },
+    {
+      "name": "cancelamento_antes_conclusao",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 18896,
+        "blockerPid": 2236,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:41.843Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 3,
+      "sessionBSQLState": "P0001",
+      "finalStatus": "cancelled",
+      "finalPaymentStatus": "cancelled"
+    },
+    {
+      "name": "conclusao_antes_cancelamento",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 23264,
+        "blockerPid": 18252,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:43.296Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 3,
+      "sessionBSQLState": "P0001",
+      "finalStatus": "completed",
+      "finalPaymentStatus": "paid"
+    },
+    {
+      "name": "profiles_inativado_enquanto_RPC_aguarda",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 3544,
+        "blockerPid": 19952,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:44.351Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 3,
+      "sessionBSQLState": "42501"
+    },
+    {
+      "name": "professionals_inativado_enquanto_RPC_aguarda",
+      "passed": true,
+      "connections": 2,
+      "barrier": {
+        "waiterPid": 9064,
+        "blockerPid": 23012,
+        "waitEventType": "Lock",
+        "observedAt": "2026-10-09T01:34:46.185Z"
+      },
+      "sessionAExit": 0,
+      "sessionBExit": 3,
+      "sessionBSQLState": "42501"
+    }
+  ],
+  "errors": [],
+  "differences": [
+    "Modelo mínimo de colunas/defaults de apoio, não dump completo de produção.",
+    "auth.users contém apenas UUIDs fictícios; auth.uid() usa GUCs de sessão, sem GoTrue/JWT/PostgREST.",
+    "Servidor local Windows/locale C/UTC; Supabase é Linux gerenciado.",
+    "spa_test_root é superuser apenas para bootstrap/inspeção; owner postgres dos RPCs é NOSUPERUSER/BYPASSRLS como na auditoria.",
+    "Sem Storage, Realtime, workers, crons ou provedor de e-mail; filas dos triggers permanecem no banco fictício."
+  ],
+  "finishedAt": "2026-10-09T01:34:47.018Z",
+  "passed": true,
+  "model": {
+    "rls": {
+      "payments": true,
+      "profiles": true,
+      "appointments": true,
+      "notifications": true,
+      "professionals": true
+    },
+    "roles": {
+      "anon": {
+        "login": false,
+        "inherit": true,
+        "bypassRLS": false,
+        "superuser": false
+      },
+      "postgres": {
+        "login": true,
+        "inherit": true,
+        "bypassRLS": true,
+        "superuser": false
+      },
+      "service_role": {
+        "login": false,
+        "inherit": true,
+        "bypassRLS": true,
+        "superuser": false
+      },
+      "authenticated": {
+        "login": false,
+        "inherit": true,
+        "bypassRLS": false,
+        "superuser": false
+      },
+      "authenticator": {
+        "login": true,
+        "inherit": false,
+        "bypassRLS": false,
+        "superuser": false
+      }
+    },
+    "constraints": 49,
+    "nonInternalTriggers": 18
+  },
+  "runnerSHA256": "40a82620f020c2d012bc68690a0252acf191914fffc4d6150120b4938aa5e14f",
+  "rolesBootstrapSHA256": "f24ac9584a3e5dbf09d1005debe0327f9953f75c3ddde33a4924ae4bef9b3496"
+}

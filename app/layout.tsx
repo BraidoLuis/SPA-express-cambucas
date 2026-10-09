@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CookieBanner } from "./components/shared/cookie-banner";
-import { Montserrat, Playfair_Display } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 
 const siteUrl = "https://www.spaexpresscambucas.com.br";
@@ -61,17 +61,21 @@ const daySpaJsonLd = {
   currenciesAccepted: "BRL",
 };
 
-const display = Playfair_Display({
+const display = localFont({
+  src: "./fonts/playfair-display/PlayfairDisplay-Variable.ttf",
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: "500 700",
+  style: "normal",
+  adjustFontFallback: "Times New Roman",
   display: "swap",
 });
 
-const sans = Montserrat({
+const sans = localFont({
+  src: "./fonts/montserrat/Montserrat-Variable.ttf",
   variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: "400 700",
+  style: "normal",
+  adjustFontFallback: "Arial",
   display: "swap",
 });
 

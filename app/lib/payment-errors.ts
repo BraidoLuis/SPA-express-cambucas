@@ -9,6 +9,12 @@ export function paymentErrorMessage(error: unknown, operation: "payment" | "comp
   }
   if (operation === "completion" && typeof details.message === "string") {
     if (details.message.includes("atendimento futuro")) return "Esse atendimento ainda não pode ser concluído.";
+    if (details.message === "O pagamento não está elegível para confirmação.") {
+      return "Esse pagamento não está pendente. Atualize a agenda antes de registrar um recebimento.";
+    }
+    if (details.message === "Pagamento do atendimento não encontrado.") {
+      return "O pagamento deste atendimento não foi encontrado. Atualize a agenda antes de continuar.";
+    }
     if (details.message.includes("Somente atendimentos confirmados")) {
       return "O atendimento não está mais confirmado. Atualize a agenda antes de continuar.";
     }
