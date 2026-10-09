@@ -3,7 +3,7 @@ import Link from "next/link";
 import { LegalPageShell } from "../components/public/legal-page-shell";
 
 export const metadata: Metadata = {
-  title: "Política de Privacidade | SPA Express Cambucás",
+  title: "Política de Privacidade",
   description:
     "Saiba como o SPA Express Cambucás coleta, utiliza e protege seus dados pessoais.",
 };
