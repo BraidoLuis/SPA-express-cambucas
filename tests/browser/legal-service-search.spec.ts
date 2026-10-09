@@ -198,7 +198,10 @@ for (const width of [1440, 390, 320]) {
         expect((await page.title()).match(/SPA Express Cambucás/g)).toHaveLength(1);
         await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", description);
         await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
-        await expect(page.getByText("INSERIR CNPJ AQUI", { exact: false })).toBeAttached();
+        const cnpj = page.locator(".legal-business-data p").filter({ hasText: "CNPJ:" });
+        await expect(cnpj).toHaveText("CNPJ: 22.343.573/0001-50");
+        await expect(cnpj).toBeVisible();
+        await expect(page.getByText("INSERIR CNPJ AQUI", { exact: false })).toHaveCount(0);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (pathname === "/termos-de-uso") {
           await expect(page.getByText("Última atualização: 9 de outubro de 2026", { exact: true })).toBeVisible();

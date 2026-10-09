@@ -10,7 +10,7 @@ import {
   type PublicSpaSettings,
 } from "../../lib/services/public-settings-service";
 
-const BUSINESS_CNPJ = "INSERIR CNPJ AQUI";
+const BUSINESS_CNPJ = "22.343.573/0001-50";
 
 export function LegalPageShell({
   eyebrow,
