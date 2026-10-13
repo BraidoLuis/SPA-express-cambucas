@@ -24,7 +24,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-async function mockServices(page: Page, delayCatalog?: Promise<void>) {
+async function mockServices(page: Page, delayCatalog?: Promise<void>, catalogRows = catalog) {
   const requests: string[] = [];
   const forbidden: string[] = [];
   const json = (route: Route, body: unknown) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
@@ -61,7 +61,7 @@ async function mockServices(page: Page, delayCatalog?: Promise<void>) {
     }
     if (pathname === "/rest/v1/professional_services" && request.method() === "GET") {
       await delayCatalog;
-      return json(route, catalog);
+      return json(route, catalogRows);
     }
     if (pathname === "/rest/v1/rpc/get_public_spa_settings") {
       return json(route, { business: { name: "SPA Express Cambucás", phone: null, email: null, description: null, whatsappUrl: null, instagramUrl: null }, businessHours: {} });
@@ -248,4 +248,56 @@ for (const surface of ["home", "cliente"] as const) {
       pending.resolve();
     }
   });
+}
+
+const extendedCatalog = Array.from({ length: 24 }, (_, index) => {
+  const row = catalog[index % catalog.length];
+  return {
+    ...row,
+    services: {
+      ...row.services,
+      id: "extended-" + index,
+      slug: "extended-" + index,
+      name: "Serviço fictício " + (index + 1),
+      category: ["Bem-estar", "Corporal", "Facial"][Math.floor(index / 8)],
+    },
+  };
+});
+
+for (const width of [390, 320]) {
+  for (const theme of ["light", "dark"] as const) {
+    test("carrossel público: retorno após atualizar a lista, " + width + "px " + theme, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      const mocks = await mockServices(page, undefined, extendedCatalog);
+      const scope = await openCatalog(page, "home");
+      const cards = scope.locator(".service-card");
+      const grid = scope.locator(".service-grid");
+      await expect(cards).toHaveCount(24);
+      if (theme === "dark") await page.getByRole("button", { name: "Ativar modo escuro", exact: true }).click();
+
+      await scope.getByRole("button", { name: "Próximos serviços", exact: true }).click();
+      await expect.poll(() => grid.evaluate((element) => element.scrollLeft)).toBeGreaterThan(20);
+      await grid.evaluate((element) => element.scrollTo({ left: element.scrollWidth - element.clientWidth, behavior: "instant" }));
+      const position = await grid.evaluate((element) => element.scrollLeft);
+      await page.getByRole("button", { name: "Exibir banner 2", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Exibir banner 2", exact: true })).toHaveAttribute("aria-current", "true");
+      expect(await grid.evaluate((element) => element.scrollLeft), "Alterar o banner deve preservar a posição do catálogo").toBe(position);
+
+      await scope.getByRole("button", { name: "Corporal", exact: true }).click();
+      await expect(cards).toHaveCount(8);
+      await grid.evaluate((element) => element.scrollTo({ left: element.scrollWidth - element.clientWidth, behavior: "instant" }));
+      await expect.poll(() => grid.evaluate((element) => element.scrollLeft)).toBeGreaterThan(20);
+      await scope.getByRole("button", { name: "Todos", exact: true }).click();
+      await expect(cards).toHaveCount(24);
+      // Valida a área realmente visível; o snap pode manter scrollLeft = padding.
+      await expect.poll(() => cards.first().evaluate((element) => {
+        const viewport = element.parentElement!;
+        const frame = viewport.getBoundingClientRect();
+        const card = element.getBoundingClientRect();
+        const left = frame.left + viewport.clientLeft;
+        return card.left >= left && card.right <= left + viewport.clientWidth;
+      }), { message: "O primeiro cartão deve ficar inteiro na área visível após atualizar os filtros" }).toBe(true);
+      expect(mocks.forbidden).toEqual([]);
+    });
+  }
 }

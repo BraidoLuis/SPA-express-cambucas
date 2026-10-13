@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { services as fallbackServices, type Service } from "../../lib/spa-data";
 import { getClientCatalog } from "../../lib/services/catalog-service";
 import { Icon, Logo, ThemeToggle } from "../shared/spa-ui";
@@ -119,6 +119,11 @@ export function PublicSite({
     return () => observer.disconnect();
   }, []);
 
+  useLayoutEffect(() => {
+    // A lista já está no DOM; mudanças no banner não reposicionam o catálogo.
+    homeCarousel.current?.scrollTo({ left: 0, behavior: "instant" });
+  }, [catalog, homeFilter, homeProfessional, homeSearch]);
+
   const serviceFilters = useMemo(() => ["Todos", ...new Set(catalog.map((item) => item.category))], [catalog]);
   const professionalOptions = useMemo(() => Array.from(new Map(catalog.filter((item) => item.professionalId).map((item) => [item.professionalId!, { id: item.professionalId!, name: item.professionalFullName || item.professional }])).values()).sort((a, b) => a.name.localeCompare(b.name)), [catalog]);
   const visibleServices = catalog.filter((item) => (homeFilter === "Todos" || item.category === homeFilter) && (homeProfessional === "all" || item.professionalId === homeProfessional) && matchesServiceSearch(item.name, homeSearch));
@@ -232,7 +237,6 @@ export function PublicSite({
       ) % heroSlides.length;
     });
   }
-  function resetHomeCarousel() { homeCarousel.current?.scrollTo({ left: 0, behavior: "smooth" }); }
   const slideHome = (direction: number) => {
     const carousel = homeCarousel.current;
 
@@ -533,16 +537,13 @@ export function PublicSite({
           <div className="services-tools catalog-controls">
             <ServiceSearch
               value={homeSearch}
-              onChange={(value) => { setHomeSearch(value); resetHomeCarousel(); }}
+              onChange={setHomeSearch}
             />
             <div className="service-filter-buttons">
               {serviceFilters.map((f) => (
                 <button
                   className={homeFilter === f ? "active" : ""}
-                  onClick={() => {
-                    setHomeFilter(f);
-                    resetHomeCarousel();
-                  }}
+                  onClick={() => setHomeFilter(f)}
                   key={f}
                 >
                   {f}
@@ -550,7 +551,7 @@ export function PublicSite({
               ))}
             </div>
             <div className="catalog-professional-controls">
-              <ProfessionalFilter options={professionalOptions} value={homeProfessional} onChange={(value) => { setHomeProfessional(value); resetHomeCarousel(); }} />
+              <ProfessionalFilter options={professionalOptions} value={homeProfessional} onChange={setHomeProfessional} />
               <div className="carousel-arrows">
                 <button
                   onClick={() => slideHome(-1)}
@@ -567,7 +568,7 @@ export function PublicSite({
               </div>
             </div>
           </div>
-          {visibleServices.length === 0 && <div className="catalog-feedback empty" role="status"><p>Nenhum serviço corresponde à pesquisa e aos filtros selecionados.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); setHomeSearch(""); resetHomeCarousel(); }}>Limpar filtros</button></div>}
+          {visibleServices.length === 0 && <div className="catalog-feedback empty" role="status"><p>Nenhum serviço corresponde à pesquisa e aos filtros selecionados.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); setHomeSearch(""); }}>Limpar filtros</button></div>}
           <div className="service-grid mobile-carousel" ref={homeCarousel}>
             {visibleServices.map((s, index) => (
               <article className="service-card motion-card" style={{ "--stagger-index": index } as React.CSSProperties} key={`${s.id || s.name}-${s.professionalId || "fallback"}`}>
