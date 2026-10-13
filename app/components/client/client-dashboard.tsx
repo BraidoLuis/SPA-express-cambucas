@@ -621,12 +621,12 @@ function ServiceScheduling({
           responsável.
         </p>
       </div>
-      <ServiceSearch
-        value={catalogSearch}
-        onChange={(value) => { setCatalogSearch(value); resetClientCarousel(); }}
-      />
-      <div className="services-tools client-tools">
-        <div className="catalog-filter-group"><div className="catalog-filters">
+      <div className="services-tools client-tools catalog-controls">
+        <ServiceSearch
+          value={catalogSearch}
+          onChange={(value) => { setCatalogSearch(value); resetClientCarousel(); }}
+        />
+        <div className="catalog-filters">
           {filters.map((f) => (
             <button
               className={catalogFilter === f ? "active" : ""}
@@ -639,17 +639,20 @@ function ServiceScheduling({
               {f}
             </button>
           ))}
-        </div><ProfessionalFilter options={professionalOptions} value={professionalFilter} onChange={(value) => { setProfessionalFilter(value); resetClientCarousel(); }} /></div>
-        <div className="carousel-arrows">
-          <button
-            onClick={() => slideClient(-1)}
-            aria-label="Serviços anteriores"
-          >
-            <ChevronLeft aria-hidden="true" />
-          </button>
-          <button onClick={() => slideClient(1)} aria-label="Próximos serviços">
-            <ChevronRight aria-hidden="true" />
-          </button>
+        </div>
+        <div className="catalog-professional-controls">
+          <ProfessionalFilter options={professionalOptions} value={professionalFilter} onChange={(value) => { setProfessionalFilter(value); resetClientCarousel(); }} />
+          <div className="carousel-arrows">
+            <button
+              onClick={() => slideClient(-1)}
+              aria-label="Serviços anteriores"
+            >
+              <ChevronLeft aria-hidden="true" />
+            </button>
+            <button onClick={() => slideClient(1)} aria-label="Próximos serviços">
+              <ChevronRight aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
       {catalogLoading && <div className="catalog-feedback"><span>✦</span><p>Carregando os serviços...</p></div>}
