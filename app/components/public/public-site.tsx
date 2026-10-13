@@ -530,12 +530,12 @@ export function PublicSite({
               </h2>
             </div>
           </div>
-          <ServiceSearch
-            value={homeSearch}
-            onChange={(value) => { setHomeSearch(value); resetHomeCarousel(); }}
-          />
-          <div className="services-tools">
-            <div className="service-filter-group"><div className="service-filter-buttons">
+          <div className="services-tools catalog-controls">
+            <ServiceSearch
+              value={homeSearch}
+              onChange={(value) => { setHomeSearch(value); resetHomeCarousel(); }}
+            />
+            <div className="service-filter-buttons">
               {serviceFilters.map((f) => (
                 <button
                   className={homeFilter === f ? "active" : ""}
@@ -548,20 +548,23 @@ export function PublicSite({
                   {f}
                 </button>
               ))}
-            </div><ProfessionalFilter options={professionalOptions} value={homeProfessional} onChange={(value) => { setHomeProfessional(value); resetHomeCarousel(); }} /></div>
-            <div className="carousel-arrows">
-              <button
-                onClick={() => slideHome(-1)}
-                aria-label="Serviços anteriores"
-              >
-                <ChevronLeft aria-hidden="true" />
-              </button>
-              <button
-                onClick={() => slideHome(1)}
-                aria-label="Próximos serviços"
-              >
-                <ChevronRight aria-hidden="true" />
-              </button>
+            </div>
+            <div className="catalog-professional-controls">
+              <ProfessionalFilter options={professionalOptions} value={homeProfessional} onChange={(value) => { setHomeProfessional(value); resetHomeCarousel(); }} />
+              <div className="carousel-arrows">
+                <button
+                  onClick={() => slideHome(-1)}
+                  aria-label="Serviços anteriores"
+                >
+                  <ChevronLeft aria-hidden="true" />
+                </button>
+                <button
+                  onClick={() => slideHome(1)}
+                  aria-label="Próximos serviços"
+                >
+                  <ChevronRight aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
           {visibleServices.length === 0 && <div className="catalog-feedback empty" role="status"><p>Nenhum serviço corresponde à pesquisa e aos filtros selecionados.</p><button type="button" onClick={() => { setHomeFilter("Todos"); setHomeProfessional("all"); setHomeSearch(""); resetHomeCarousel(); }}>Limpar filtros</button></div>}
