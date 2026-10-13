@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   useEffect,
+  useId,
   useState,
 } from "react";
 import {
@@ -95,6 +96,9 @@ export function LoginScreen({
   ) => Promise<LoginResult>;
 }) {
   const admin = role === "admin";
+  const emailId = useId();
+  const passwordId = useId();
+  const confirmPasswordId = useId();
 
   const [show, setShow] = useState(false);
   const [creating, setCreating] =
@@ -418,12 +422,13 @@ export function LoginScreen({
 
           {!recovering && (
             <>
-              <label>E-mail</label>
+              <label htmlFor={emailId}>E-mail</label>
 
               <div className="login-input">
                 <span>✉</span>
 
                 <input
+                  id={emailId}
                   type="email"
                   autoComplete="email"
                   value={email}
@@ -438,7 +443,7 @@ export function LoginScreen({
             </>
           )}
 
-          <label>
+          <label htmlFor={passwordId}>
             {recovering
               ? "Nova senha"
               : "Senha"}
@@ -448,6 +453,7 @@ export function LoginScreen({
             <span>⌑</span>
 
             <input
+              id={passwordId}
               type={
                 show
                   ? "text"
@@ -469,6 +475,7 @@ export function LoginScreen({
 
             <button
               type="button"
+              aria-label={`${show ? "Ocultar" : "Exibir"} ${recovering ? "nova senha e confirmação" : "senha"}`}
               onClick={() =>
                 setShow(!show)
               }
@@ -481,7 +488,7 @@ export function LoginScreen({
 
           {recovering && (
             <>
-              <label>
+              <label htmlFor={confirmPasswordId}>
                 Confirmar nova senha
               </label>
 
@@ -489,6 +496,7 @@ export function LoginScreen({
                 <span>⌑</span>
 
                 <input
+                  id={confirmPasswordId}
                   type={
                     show
                       ? "text"
@@ -518,16 +526,20 @@ export function LoginScreen({
           )}
 
           {error && (
-            <p className="form-server-error">
+            <p className="form-server-error" role="alert">
               {error}
             </p>
           )}
 
-          {message && (
-            <p className="form-success-message">
-              {message}
-            </p>
-          )}
+          <p
+            className="form-success-message"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            style={message ? undefined : { margin: 0 }}
+          >
+            {message}
+          </p>
 
           <button
             className="primary login-submit"
